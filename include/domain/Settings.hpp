@@ -15,90 +15,9 @@ namespace CE::Domain
         unsigned short minLevelCm                  = 50u;               //Minimum water level to START pumping
         unsigned short maxLevelCm                  = 130u;              //Maximum water level to STOP pumping - Sensor position
 
-        //Ultrasonic Sensor
-        unsigned short sensorRangeMinCm            = 25u;               //25cm for JRT
-
         //Measure delays
-        unsigned short
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        radarDelayS                 = 5u;               //Delay between distance measures
+        unsigned short radarDelayS                 = 1u;               //Delay between distance measures
+        unsigned short medianMeasurementCount      = 5u;               //Number of measure before using median
         unsigned short weatherDelayS               = 30u;              //Delay between weather updates
         unsigned short medianWindow                = 5u;               //Number of measures to median
         unsigned short watchdogDelayS              = 60u;              //Delay between health checks
@@ -125,8 +44,6 @@ namespace CE::Domain
             dst[name]["minLevelCm"]                    = minLevelCm;
             dst[name]["maxLevelCm"]                    = maxLevelCm;
 
-            dst[name]["sensorRangeMinCm"]              = sensorRangeMinCm;
-
             dst[name]["radarDelayS"]                   = radarDelayS;
             dst[name]["weatherDelayS"]                 = weatherDelayS;
             dst[name]["medianWindow"]                  = medianWindow;
@@ -151,8 +68,6 @@ namespace CE::Domain
             criticalLevelCm             = obj[name]["criticalLevelCm"]          | criticalLevelCm;
             minLevelCm                  = obj[name]["minLevelCm"]               | minLevelCm;
             maxLevelCm                  = obj[name]["maxLevelCm"]               | maxLevelCm;
-
-            sensorRangeMinCm            = obj[name]["sensorRangeMinCm"]         | sensorRangeMinCm;
 
             radarDelayS                 = obj[name]["radarDelayS"]              | radarDelayS;
             weatherDelayS               = obj[name]["weatherDelayS"]            | weatherDelayS;
