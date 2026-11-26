@@ -3,6 +3,7 @@
 //
 
 #include <App.h>
+#include <algorithm>
 #include <config/Build.hpp>
 #include <config/Pins.hpp>
 #include <os/Settings.h>
@@ -13,7 +14,8 @@
 
 namespace CE::Services
 {
-    Radar::Radar() :  _socketId(-1), _driver(Config::Pins::kEchoPin, Config::Pins::kTrigPin)
+    Radar::Radar() :  _socketId(-1), _driver(Config::Pins::kEchoPin, Config::Pins::kTrigPin),
+        _measurements{}, _measurementCount(0), _hasMedianSample(false), _sample{}
     {
         ESP_LOGV(TAG, "Constructor");
     }
@@ -44,11 +46,12 @@ namespace CE::Services
 
     const Domain::RadarSample & Radar::GetSample() const
     {
-        return _driver.sample;
+        return _sample;
     }
 
     void Radar::Task(void* pvParameters)
     {
+        const auto& settings = OS::Settings::Get();
         auto& radar = *static_cast<Radar*>(pvParameters);
         ESP_LOGV(radar.TAG, "Task Started");
 
@@ -56,8 +59,18 @@ namespace CE::Services
         {
             if (radar._driver.TryRead())
             {
-                WSServer::Instance().Broadcast("distance", radar.GetSample());
-                ESP_LOGD(radar.TAG, "Distance: '%.2f' cm.", radar._driver.sample.distanceCm);
+                radar._measurements[radar._measurementCount++] = radar._driver.sample.distanceCm;
+                if (radar._measurementCount == settings.medianMeasurementCount)
+                {
+                    auto sortedMeasurements = radar._measurements;
+                    std::sort(sortedMeasurements.begin(), sortedMeasurements.end());
+                    radar._sample.distanceCm = sortedMeasurements[settings.medianMeasurementCount / 2];
+                    radar._hasMedianSample = true;
+                    radar._measurementCount = 0;
+
+                    WSServer::Instance().Broadcast("distance", radar.GetSample());
+                    ESP_LOGD(radar.TAG, "Median distance: '%.2f' cm.", radar._sample.distanceCm);
+                }
             }
             else
             {
@@ -77,8 +90,11 @@ namespace CE::Services
 
         if (strcmp(command, "getStatus") == 0)
         {
-            WSServer::Instance().Broadcast("distance", GetSample());
-            return false;
+            if (_hasMedianSample)
+            {
+                WSServer::Instance().Broadcast("distance", GetSample());
+                return true;
+            }
         }
 
         return false;

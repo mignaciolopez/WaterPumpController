@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include <vector>
 //#include <driver/JSN-SR04M-2.h>
 //#include <driver/HC-SR04.h>
 //#include <driver/A02YYUW_UART.h>
@@ -26,6 +27,10 @@ namespace CE::Services
         const char* TAG = "Service-Radar";
         size_t _socketId;
         Driver::A02YYUW_PWM _driver;
+        std::vector<float> _measurements;
+        size_t _measurementCount;
+        bool _hasMedianSample;
+        Domain::RadarSample _sample;
     };
 
 }   // namespace CE::Services
