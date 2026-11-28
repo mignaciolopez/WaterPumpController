@@ -91,7 +91,7 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
   in a row did not crash. So the crash is intermittent (consistent with a race, but three clean runs prove nothing).
 - Next: `tools\ws-stress.ps1` connects and disconnects many times at random moments (optionally dropping the
   connection abruptly) and then checks whether the board still answers. Run it against both builds:
-  `.	ools\ws-stress.ps1 -Cycles 60 -Abrupt` on the normal firmware (expected: a crash within a few dozen cycles if
+  `.\tools\ws-stress.ps1 -Cycles 60 -Abrupt` on the normal firmware (expected: a crash within a few dozen cycles if
   the race theory is right) and on `esp-wrover-kit-nowssend` (expected: no crash). Compare.
 - The Arduino core has the built-in HTTP server with WebSocket support (`CONFIG_HTTPD_WS_SUPPORT 1`,
   `httpd_ws_send_frame_async` is meant to be used from other tasks); it is the alternative to the async libraries.
