@@ -52,6 +52,15 @@ namespace CE::Core
         int64_t   timeStampCooldown = 0;
     };
 
+    /// Mode derived from a state snapshot (faults take priority, then running, then cooldown).
+    inline PumpMode PumpModeOf(const PumpState& state)
+    {
+        if (state.fault != PumpFault::None) return PumpMode::Fault;
+        if (state.isOn) return PumpMode::Running;
+        if (state.isOnCooldown) return PumpMode::Cooldown;
+        return PumpMode::Idle;
+    }
+
     /// Owns all pump safety rules. Call Begin() once, then Update() periodically.
     ///
     /// Rules:

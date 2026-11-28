@@ -111,8 +111,8 @@ Full specification lives in `docs/protocol.md`.
 ## Error Handling Standards
 - `core` returns explicit results (`bool` or a small `Result`/error-code enum); exceptions are not used
 - Protocol errors use the `err` field of the response with a stable code:
-  `BAD_REQUEST`, `UNKNOWN_COMMAND`, `INVALID_VALUE`,
-  `PUMP_COOLDOWN`, `PUMP_TOO_SOON`, `HIGH_LEVEL`, `SENSOR_FAULT`, `INTERNAL`
+  `BAD_REQUEST`, `UNKNOWN_COMMAND`, `UNKNOWN_FIELD`, `INVALID_VALUE`,
+  `PUMP_COOLDOWN`, `PUMP_TOO_SOON`, `HIGH_LEVEL`, `PUMP_FAULT`, `INTERNAL`
 - Every error is logged once, at the layer that handles it
 - A failed `Setup()` of a non-critical adapter (e.g. network) must not stop the pump logic from running safely
 

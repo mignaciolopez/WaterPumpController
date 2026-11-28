@@ -52,10 +52,7 @@ namespace CE::Core
 
     PumpMode PumpController::Mode() const
     {
-        if (_state.fault != PumpFault::None) return PumpMode::Fault;
-        if (_state.isOn) return PumpMode::Running;
-        if (_state.isOnCooldown) return PumpMode::Cooldown;
-        return PumpMode::Idle;
+        return PumpModeOf(_state);
     }
 
     void PumpController::SetConfig(const PumpConfig& config)

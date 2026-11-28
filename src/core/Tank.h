@@ -30,6 +30,10 @@ namespace CE::Core
 
         void Update();
 
+        /// Float switches are the primary control: by default rules can veto starts and request
+        /// stops, but a rule's WantOn is ignored. Enable to let rules start the pump too.
+        void SetRulesMayStart(const bool enabled) { _rulesMayStart = enabled; }
+
         bool HasLevel() const { return _filter.Ready(); }
         float LevelCm() const;
 
@@ -40,5 +44,6 @@ namespace CE::Core
         LevelFilter _filter;
         const IRule* _rules[kMaxRules] = {};
         size_t _ruleCount = 0;
+        bool _rulesMayStart = false;
     };
 }

@@ -2,9 +2,9 @@
 Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitution.md`
 
 ## Summary
-- **Steps Completed:** 2 / 6
-- **Current Step:** Step 3 - Codec + `docs/protocol.md` (waiting for go-ahead)
-- **Checks (last run):** `pio test -e native` 63/63 passing · `pio run -e esp-wrover-kit` builds
+- **Steps Completed:** 3 / 6
+- **Current Step:** Step 4 - Adapters (waiting for go-ahead)
+- **Checks (last run):** `pio test -e native` 91/91 passing · `pio run -e esp-wrover-kit` builds
 
 ## Task Log
 ### Step 1 - Ports, PumpController, native test env (done)
@@ -23,6 +23,16 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - `IClock` gained `LocalHour()` (for night rule)
 - `.gitattributes` added (LF in repo)
 - ESP32 env now builds with `-std=gnu++17` (was the Arduino default gnu++11)
+
+### Step 3 - Versioned JSON codec (done)
+- Version lives in the endpoint (`/ws/v1`); messages carry no `v`
+- `docs/protocol.md`: commands (`state.get`, `pump.set`, `settings.get`, `settings.set`), events
+  (`pump.state`, `tank.level`, `settings.changed`), error codes, settings table
+- `core/Messages`: transport-independent `Command`, `ErrorCode`, result-to-error mapping
+- `adapters/codec/CodecV1`: `DecodeCommand` (strict validation, 1024-byte limit) and encoders
+- Float switches are the primary pump control: `Tank` ignores a rule's WantOn unless `SetRulesMayStart(true)`
+- Error codes: added `UNKNOWN_FIELD`, `PUMP_FAULT`; removed `SENSOR_FAULT` (constitution updated)
+- Native env now also builds `adapters/codec` and uses ArduinoJson
 
 ## Open Questions / Assumptions to confirm
 - Level formula: `level = height - (distance + filteredDistanceOffsetCm)`, clamped to 0..height

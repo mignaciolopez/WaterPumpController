@@ -33,6 +33,14 @@ namespace
             ASSERT_TRUE(tank.AddRule(nightRule));
         }
 
+        // Float switches are the primary control: the low sensor going dry starts the pump.
+        void StartByFloatSwitch()
+        {
+            low.wet = false;
+            tank.Update();
+            low.wet = true;
+        }
+
         void Feed(const float distanceCm)
         {
             for (int i = 0; i < 3; ++i) tank.OnDistanceSample(distanceCm);
@@ -53,11 +61,30 @@ namespace
         EXPECT_FLOAT_EQ(tank.LevelCm(), 50.0f);
     }
 
-    TEST_F(TankTest, StartsPumpWhenLevelIsLowDuringTheDay)
+    TEST_F(TankTest, LevelRuleAloneDoesNotStartPump)
     {
-        Feed(95); // level 45
+        Feed(95); // level 45, below min 50, but the float switch says there is water
 
         tank.Update();
+
+        EXPECT_FALSE(relay.on);
+    }
+
+    TEST_F(TankTest, LevelRuleCanStartPumpWhenEnabled)
+    {
+        tank.SetRulesMayStart(true);
+        Feed(95);
+
+        tank.Update();
+
+        EXPECT_TRUE(relay.on);
+    }
+
+    TEST_F(TankTest, FloatSwitchStartsPumpDuringTheDay)
+    {
+        Feed(95);
+
+        StartByFloatSwitch();
 
         EXPECT_TRUE(relay.on);
     }
@@ -72,12 +99,12 @@ namespace
         EXPECT_FALSE(relay.on);
     }
 
-    TEST_F(TankTest, StartsAtNightWhenLevelIsCritical)
+    TEST_F(TankTest, FloatSwitchStartsAtNightWhenLevelIsCritical)
     {
         clock.localHour = 23;
         Feed(125); // level 15
 
-        tank.Update();
+        StartByFloatSwitch();
 
         EXPECT_TRUE(relay.on);
     }
@@ -96,7 +123,7 @@ namespace
     TEST_F(TankTest, StopsWhenLevelReachesMaxAfterMinRunTime)
     {
         Feed(95);
-        tank.Update();
+        StartByFloatSwitch();
         ASSERT_TRUE(relay.on);
 
         clock.Advance(30);
@@ -109,7 +136,7 @@ namespace
     TEST_F(TankTest, LevelStopWaitsForMinRunTime)
     {
         Feed(95);
-        tank.Update();
+        StartByFloatSwitch();
         ASSERT_TRUE(relay.on);
 
         clock.Advance(3);
@@ -152,7 +179,7 @@ namespace
     {
         settings.pumpMaxTimeOnM = 1;
         Feed(95);
-        tank.Update();
+        StartByFloatSwitch();
         ASSERT_TRUE(relay.on);
 
         clock.Advance(60);

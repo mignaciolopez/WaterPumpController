@@ -56,6 +56,6 @@ namespace CE::Core
 
         // Refusals (too soon, cooldown, ...) are fine: the rules ask again on the next Update.
         if (wantOff) (void)_pump.Request(false);
-        else if (wantOn && !veto) (void)_pump.Request(true);
+        else if (_rulesMayStart && wantOn && !veto) (void)_pump.Request(true);
     }
 }
