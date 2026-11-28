@@ -5,10 +5,10 @@ This document is the source of truth for architecture and rules. Changes to it n
 
 ## Tech Stack
 - **Target:** ESP32 (`esp-wrover-kit` first; any ESP32 with FreeRTOS via a device profile)
-- **Build:** PlatformIO with the **pioarduino** platform (Arduino core 3.x, ESP-IDF 5.x, GCC 14), Arduino framework.
-  Language standard: **C++23** (`-std=gnu++23`), the latest the toolchain supports. The official `espressif32@6.x` platform is capped at C++17 and is not used.
-  If a required library cannot build on core 3.x, ask before falling back to a lower standard.
-- **Test:** PlatformIO `native` env + GoogleTest (runs on the PC, no hardware). Unity is not used. Native env also builds with `-std=gnu++23`.
+- **Build:** PlatformIO, official `espressif32` platform (Arduino core 2.x, GCC 8.4), Arduino framework.
+  Language standard: **C++17** (`-std=gnu++17`), the same for the ESP32 build and the native tests.
+  Moving to a newer standard requires switching platform (pioarduino) and needs approval.
+- **Test:** PlatformIO `native` env + GoogleTest (runs on the PC, no hardware). Unity is not used.
 - **Libraries:** ArduinoJson, ESPAsyncWebServer-esphome, AsyncTCP-esphome, ESP32Ping (watchdog rule).
   DHT / Adafruit Unified Sensor stay for the future weather adapter only.
   Removed: WiFiManager, NewPing (unless the HC-SR04 driver is kept).
@@ -21,7 +21,7 @@ Ports and adapters (hexagonal) with an event bus.
 
 ```
 src/
-  core/            Pure C++23. NO Arduino, ESP-IDF, FreeRTOS or ArduinoJson includes.
+  core/            Pure C++17. NO Arduino, ESP-IDF, FreeRTOS or ArduinoJson includes.
     ports/           ILevelSensor, IFloatSwitch, ISwitch, IClock, IStore, IEventBus, ILog
     PumpController   state machine: Idle -> Running -> Cooldown -> Fault
     LevelFilter      median filter
