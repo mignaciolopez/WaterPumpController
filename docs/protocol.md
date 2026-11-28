@@ -29,8 +29,14 @@ The first key tells you what a message is.
 Snapshot of the pump and the water level.
 ```json
 {"cmd":"state.get","id":1}
-{"id":1,"ok":true,"data":{"pump":{...pump object...},"level":{"cm":45.2}}}
+{"id":1,"ok":true,"data":{"pump":{...pump object...},"level":{"cm":45.2},"sensor":{"minDistanceCm":3,"maxDistanceCm":450}}}
 ```
+
+The `sensor` block says what the distance sensor can measure, so a client can scale its display or validate
+input: `minDistanceCm` (the closest it can measure, 3 for the A02YYUW) and `maxDistanceCm` (the farthest, 450). It
+describes the **distance** from the sensor to the water. The level is `heightCm - distance`, so it can range from
+`max(0, heightCm - maxDistanceCm)` up to `heightCm - minDistanceCm` (137 for the default height of 140). The block is
+only present when the device knows the sensor's range, and it is not repeated in the pushed events.
 
 ### `pump.set`
 Turn the pump on or off. Safety rules still apply: a start can be refused (`PUMP_COOLDOWN`,

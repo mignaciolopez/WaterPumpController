@@ -29,6 +29,17 @@ namespace CE::Core
     ErrorCode ToErrorCode(PumpResult result);
     ErrorCode ToErrorCode(SettingResult result);
 
+    /// What the distance sensor can measure, so a client can scale its display. 0/0 = not known (left out).
+    /// The level is `heightCm - distance`, so it ranges from `max(0, heightCm - maxDistanceCm)` up to
+    /// `heightCm - minDistanceCm`.
+    struct SensorRange
+    {
+        float minDistanceCm = 0.0f;
+        float maxDistanceCm = 0.0f;
+
+        bool IsKnown() const { return maxDistanceCm > 0.0f; }
+    };
+
     enum class CommandType : uint8_t
     {
         PumpSet,      // turn the pump on or off

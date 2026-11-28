@@ -199,10 +199,11 @@ curl http://192.168.100.247/api/v1/state
 curl -X POST http://192.168.100.247/api/v1/pump -H "Content-Type: application/json" -d '{"on":true}'
 ```
 
-`GET /api/v1/state` looks like this (`level.cm` is `null` while the level is unknown):
+`GET /api/v1/state` looks like this (`level.cm` is `null` while the level is unknown; `sensor` is the range the
+distance sensor can measure, in cm of distance, so a client can scale its display):
 
 ```json
-{"pump":{"mode":"running","on":true,"cooldown":false,"fault":"none","onAt":1795875075,"offAt":1795874874,"cooldownAt":0},"level":{"cm":72.2}}
+{"pump":{"mode":"running","on":true,"cooldown":false,"fault":"none","onAt":1795875075,"offAt":1795874874,"cooldownAt":0},"level":{"cm":72.2},"sensor":{"minDistanceCm":3,"maxDistanceCm":450}}
 ```
 
 A refused request gets an HTTP error and a code, for example `409` `{"ok":false,"err":"PUMP_COOLDOWN"}`. Writes

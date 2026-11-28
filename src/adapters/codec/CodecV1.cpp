@@ -90,7 +90,8 @@ namespace CE::Adapters::CodecV1
         return Serialize(doc);
     }
 
-    std::string EncodeStateResponse(const int32_t id, const PumpState& pump, const bool levelValid, const float levelCm)
+    std::string EncodeStateResponse(const int32_t id, const PumpState& pump, const bool levelValid, const float levelCm,
+                                    const SensorRange& sensor)
     {
         JsonDocument doc;
         doc["id"] = id;
@@ -98,6 +99,7 @@ namespace CE::Adapters::CodecV1
         const JsonObject data = doc["data"].to<JsonObject>();
         Codec::FillPump(data["pump"].to<JsonObject>(), pump);
         Codec::FillLevel(data["level"].to<JsonObject>(), levelValid, levelCm);
+        if (sensor.IsKnown()) Codec::FillSensor(data["sensor"].to<JsonObject>(), sensor);
         return Serialize(doc);
     }
 

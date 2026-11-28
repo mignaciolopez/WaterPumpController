@@ -82,6 +82,14 @@ namespace CE::App
         void Update();
 
         const Core::Settings& GetSettings() const { return _settings; }
+
+        /// What the distance sensor can measure; sent to clients with the state.
+        void SetSensorRange(const Core::SensorRange& range)
+        {
+            _sensorRange = range;
+            ++_revision;   // the cached state changed
+        }
+        const Core::SensorRange& GetSensorRange() const { return _sensorRange; }
         const Core::PumpState& GetPumpState() const { return _pump.State(); }
         bool HasLevel() const { return _tank.HasLevel(); }
         float LevelCm() const { return _tank.LevelCm(); }
@@ -112,6 +120,8 @@ namespace CE::App
         Core::LevelRule _levelRule;
         Core::NightRule _nightRule;
         Core::CommandHandler _handler;
+
+        Core::SensorRange _sensorRange;
 
         // What clients were last told, to publish only changes.
         bool _published = false;

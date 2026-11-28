@@ -98,6 +98,19 @@ TEST(RestCodecEncodeTest, StateHasPumpAndLevelWithoutAnEnvelope)
     EXPECT_TRUE(doc["id"].isNull());
 }
 
+TEST(RestCodecEncodeTest, StateCarriesTheSensorRangeWhenKnown)
+{
+    const auto doc = Parse(EncodeState(PumpState{}, true, 80.0f, SensorRange{3.0f, 450.0f}));
+
+    EXPECT_FLOAT_EQ(doc["sensor"]["minDistanceCm"].as<float>(), 3.0f);
+    EXPECT_FLOAT_EQ(doc["sensor"]["maxDistanceCm"].as<float>(), 450.0f);
+}
+
+TEST(RestCodecEncodeTest, StateLeavesTheSensorOutWhenTheRangeIsUnknown)
+{
+    EXPECT_TRUE(Parse(EncodeState(PumpState{}, true, 80.0f))["sensor"].isNull());
+}
+
 TEST(RestCodecEncodeTest, UnknownLevelIsNull)
 {
     EXPECT_TRUE(Parse(EncodeState(PumpState{}, false, 0.0f))["level"]["cm"].isNull());

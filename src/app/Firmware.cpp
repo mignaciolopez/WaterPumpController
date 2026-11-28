@@ -72,6 +72,7 @@ namespace CE::App
             _log.Log(Core::LogLevel::Error, kTag, "Storage unavailable: settings and pump state will not persist");
 
         _controller.Begin();
+        _controller.SetSensorRange({_distanceSensor.MinDistanceCm(), _distanceSensor.MaxDistanceCm()});
         ShareSettings();
 
         // Network and time do not block: the pump stays in a "no time" fault until the clock syncs.
@@ -139,7 +140,8 @@ namespace CE::App
 
         _snapshotRevision = _controller.Revision();
         _snapshot.Set(
-            Adapters::RestCodec::EncodeState(_controller.GetPumpState(), _controller.HasLevel(), _controller.LevelCm()),
+            Adapters::RestCodec::EncodeState(_controller.GetPumpState(), _controller.HasLevel(), _controller.LevelCm(),
+                                             _controller.GetSensorRange()),
             Adapters::RestCodec::EncodeSettings(_controller.GetSettings()));
     }
 

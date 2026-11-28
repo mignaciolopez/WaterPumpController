@@ -59,6 +59,12 @@ namespace CE::Adapters::Codec
         }
     }
 
+    void FillSensor(const JsonObject out, const SensorRange& range)
+    {
+        out["minDistanceCm"] = range.minDistanceCm;
+        out["maxDistanceCm"] = range.maxDistanceCm;
+    }
+
     ErrorCode ReadPumpSet(const JsonVariantConst data, Command& command)
     {
         if (!data["on"].is<bool>()) return ErrorCode::BadRequest;

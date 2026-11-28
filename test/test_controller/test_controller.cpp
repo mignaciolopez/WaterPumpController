@@ -230,6 +230,36 @@ namespace
         EXPECT_GE(controller.LevelCm(), 130.0f);
     }
 
+    // ---- sensor range in the state
+
+    TEST_F(ControllerTest, StateGetCarriesTheSensorRangeOnceItIsSet)
+    {
+        controller.SetSensorRange({3.0f, 450.0f});
+
+        controller.OnCommand(5, Cmd(CommandType::StateGet, 1));
+
+        const auto doc = Parse(sink.sent[0].message);
+        EXPECT_FLOAT_EQ(doc["data"]["sensor"]["minDistanceCm"].as<float>(), 3.0f);
+        EXPECT_FLOAT_EQ(doc["data"]["sensor"]["maxDistanceCm"].as<float>(), 450.0f);
+    }
+
+    TEST_F(ControllerTest, StateGetLeavesTheSensorOutWhenNoRangeWasSet)
+    {
+        controller.OnCommand(5, Cmd(CommandType::StateGet, 1));
+
+        EXPECT_TRUE(Parse(sink.sent[0].message)["data"]["sensor"].isNull());
+    }
+
+    TEST_F(ControllerTest, SettingTheSensorRangeRefreshesTheCachedState)
+    {
+        const uint32_t before = controller.Revision();
+
+        controller.SetSensorRange({3.0f, 450.0f});
+
+        EXPECT_GT(controller.Revision(), before);
+        EXPECT_FLOAT_EQ(controller.GetSensorRange().maxDistanceCm, 450.0f);
+    }
+
     // ---- cooldown log
 
     static std::vector<std::string> CooldownLogs(const Fakes::FakeLog& log)

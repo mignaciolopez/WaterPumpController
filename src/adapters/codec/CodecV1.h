@@ -27,7 +27,8 @@ namespace CE::Adapters::CodecV1
     // Responses (one per command)
     std::string EncodeOk(int32_t id);
     std::string EncodeError(int32_t id, Core::ErrorCode code);
-    std::string EncodeStateResponse(int32_t id, const Core::PumpState& pump, bool levelValid, float levelCm);
+    std::string EncodeStateResponse(int32_t id, const Core::PumpState& pump, bool levelValid, float levelCm,
+                                    const Core::SensorRange& sensor = {});
     std::string EncodeSettingsResponse(int32_t id, const Core::Settings& settings);
 
     // Events (pushed to clients)

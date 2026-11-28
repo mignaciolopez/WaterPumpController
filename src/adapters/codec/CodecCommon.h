@@ -17,6 +17,9 @@ namespace CE::Adapters::Codec
 
     void FillSettings(JsonObject out, const Core::Settings& settings);
 
+    /// What the distance sensor can measure: minDistanceCm and maxDistanceCm.
+    void FillSensor(JsonObject out, const Core::SensorRange& range);
+
     /// Reads {"on": <bool>} into a PumpSet command (type and `on`; the id is left alone).
     Core::ErrorCode ReadPumpSet(JsonVariantConst data, Core::Command& command);
 

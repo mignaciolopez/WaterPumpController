@@ -237,6 +237,22 @@ TEST(CodecV1EncodeTest, StateResponseHasPumpAndLevel)
     EXPECT_NEAR(doc["data"]["level"]["cm"].as<float>(), 80.0f, 0.001f);
 }
 
+TEST(CodecV1EncodeTest, StateResponseCarriesTheSensorRangeWhenKnown)
+{
+    const auto doc = Parse(EncodeStateResponse(5, PumpState{}, true, 80.0f, SensorRange{3.0f, 450.0f}));
+
+    EXPECT_FLOAT_EQ(doc["data"]["sensor"]["minDistanceCm"].as<float>(), 3.0f);
+    EXPECT_FLOAT_EQ(doc["data"]["sensor"]["maxDistanceCm"].as<float>(), 450.0f);
+}
+
+TEST(CodecV1EncodeTest, StateResponseLeavesTheSensorOutWhenTheRangeIsUnknown)
+{
+    const auto doc = Parse(EncodeStateResponse(5, PumpState{}, true, 80.0f));
+
+    EXPECT_TRUE(doc["data"]["sensor"].isNull());
+    EXPECT_FALSE(doc["data"]["pump"].isNull());   // the rest is unchanged
+}
+
 TEST(CodecV1EncodeTest, SettingsResponseAndEventContainEveryField)
 {
     const Settings settings;

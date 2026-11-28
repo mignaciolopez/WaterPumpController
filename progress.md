@@ -151,6 +151,13 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
   Needs a synced clock; stops by itself when the cooldown ends. Also works after a reboot during a cooldown (the
   state is restored from flash).
 
+### Sensor range in the API (done; unit tested)
+- `GET /api/v1/state` and the WebSocket `state.get` answer now carry `sensor: {minDistanceCm, maxDistanceCm}` (3 and 450
+  for the A02YYUW), so a client can scale its display. Additive: existing fields are unchanged; the block is left out when
+  the range is unknown; it is not repeated in the pushed events.
+- The values come from the driver (`IDistanceSensor::MinDistanceCm()` / `MaxDistanceCm()`), set once in `Firmware::Begin`.
+  They are distances; the level range is `max(0, heightCm - max)` .. `heightCm - min` (documented in `docs/protocol.md`).
+
 ### Sensor logging (done)
 - `XKC_Y23` (tag `XKC_Y23`, Info): logs the initial state of the Low and High sensors, then every change
   ("Low: water detected" / "Low: no water", same for High)

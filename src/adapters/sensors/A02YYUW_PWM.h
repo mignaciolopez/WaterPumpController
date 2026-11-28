@@ -20,6 +20,7 @@ namespace CE::Adapters
 
         Core::DistanceReading Read() override;
         float MinDistanceCm() const override { return kMinDistanceCm; }
+        float MaxDistanceCm() const override { return kMaxDistanceCm; }
 
         static constexpr float kMinDistanceCm = 3.0f;
         static constexpr float kMaxDistanceCm = 450.0f;

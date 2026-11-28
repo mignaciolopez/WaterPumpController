@@ -146,7 +146,7 @@ namespace CE::App
         {
             case CommandType::StateGet:
                 _sink.Send(clientId, Codec::EncodeStateResponse(command.id, _pump.State(), _tank.HasLevel(),
-                                                                _tank.LevelCm()));
+                                                                _tank.LevelCm(), _sensorRange));
                 break;
             case CommandType::SettingsGet:
                 _sink.Send(clientId, Codec::EncodeSettingsResponse(command.id, _settings));

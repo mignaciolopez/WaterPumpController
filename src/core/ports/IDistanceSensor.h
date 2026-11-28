@@ -33,5 +33,8 @@ namespace CE::Core
 
         /// The closest distance the sensor can measure (its blind zone ends here).
         virtual float MinDistanceCm() const = 0;
+
+        /// The farthest distance the sensor can measure.
+        virtual float MaxDistanceCm() const = 0;
     };
 }

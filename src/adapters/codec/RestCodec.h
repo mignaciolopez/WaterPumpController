@@ -18,7 +18,8 @@ namespace CE::Adapters::RestCodec
     /// Body of PUT /api/v1/settings: {"minLevelCm":90,...}
     Core::ErrorCode DecodeSettingsBody(const char* body, size_t length, Core::Command& command);
 
-    std::string EncodeState(const Core::PumpState& pump, bool levelValid, float levelCm);
+    std::string EncodeState(const Core::PumpState& pump, bool levelValid, float levelCm,
+                            const Core::SensorRange& sensor = {});
     std::string EncodeSettings(const Core::Settings& settings);
     std::string EncodeOk();                            // {"ok":true}
     std::string EncodeError(Core::ErrorCode code);     // {"ok":false,"err":"PUMP_COOLDOWN"}

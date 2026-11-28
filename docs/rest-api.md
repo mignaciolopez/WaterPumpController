@@ -18,10 +18,16 @@ Write requests (`POST`, `PUT`) must send `Content-Type: application/json` and a 
 ### GET /api/v1/state
 ```
 $ curl http://<ip>/api/v1/state
-{"pump":{"mode":"idle","on":false,"cooldown":false,"fault":"none","onAt":0,"offAt":0,"cooldownAt":0},"level":{"cm":45.2}}
+{"pump":{"mode":"idle","on":false,"cooldown":false,"fault":"none","onAt":0,"offAt":0,"cooldownAt":0},"level":{"cm":45.2},"sensor":{"minDistanceCm":3,"maxDistanceCm":450}}
 ```
 `level.cm` is `null` while the level is unknown. The fields are the same as in the WebSocket `pump.state`
 and `tank.level` events (see `docs/protocol.md`).
+
+The `sensor` block says what the distance sensor can measure, so a client can scale its display or validate
+input: `minDistanceCm` (the closest it can measure, 3 for the A02YYUW) and `maxDistanceCm` (the farthest, 450). It
+describes the **distance** from the sensor to the water. The level is `heightCm - distance`, so it can range from
+`max(0, heightCm - maxDistanceCm)` up to `heightCm - minDistanceCm` (137 for the default height of 140). The block is
+only present when the device knows the sensor's range, and it is not repeated in the pushed events.
 
 ### GET /api/v1/settings
 ```
