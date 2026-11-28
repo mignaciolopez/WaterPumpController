@@ -69,6 +69,7 @@ error status and a body `{"ok":false,"err":"<CODE>"}`. The codes are the same as
 | 400 | `BAD_REQUEST` | Body missing, too large, not valid JSON, or wrong field types |
 | 400 | `UNKNOWN_FIELD` | A setting name does not exist |
 | 415 | `BAD_REQUEST` | `Content-Type` is not `application/json` |
+| 405 | `BAD_REQUEST` | Wrong method for an existing path (for example `GET /api/v1/pump`) |
 | 422 | `INVALID_VALUE` | Not an integer, out of range, or breaks the rule between settings |
 | 409 | `PUMP_COOLDOWN`, `PUMP_TOO_SOON`, `HIGH_LEVEL`, `PUMP_FAULT` | The pump refused the request |
 | 500 | `INTERNAL` | Device error, queue full, or no answer within 2 seconds |
@@ -76,6 +77,7 @@ error status and a body `{"ok":false,"err":"<CODE>"}`. The codes are the same as
 Unknown paths answer `404` with `{"ok":false,"err":"UNKNOWN_COMMAND"}`.
 
 ## How it behaves
+- It runs on the ESP-IDF HTTP server (`esp_http_server`) in its own task, shared with the WebSocket.
 - `GET` answers from a copy that is refreshed whenever the state or the settings change (at most 250 ms old).
   It never waits for the pump logic.
 - `POST` and `PUT` go through the same command queue as the WebSocket, so only one task ever changes the

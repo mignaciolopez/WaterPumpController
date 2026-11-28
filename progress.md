@@ -67,47 +67,20 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - Compile-checked only: the REST endpoints have NOT been exercised on the board yet (see the REST checks below)
 - Profile field `webSocketPort` renamed to `httpPort`
 
-### OPEN: heap corruption crash after the WebSocket check (not fixed yet)
-- Symptom: `CORRUPT HEAP: Bad head at 0x3ffda5d4 ... assert failed: multi_heap_free`, then reboot. Decoded backtrace:
-  `tcp_close` in lwIP (called from `_tcp_close_api` of AsyncTCP) freeing a TCP connection, i.e. when a connection closed.
-  The firmware on the board matched the build (same ELF checksum). Seen after `tools/ws-check.ps1` had run.
-- That is only where it was noticed: something wrote outside its memory earlier.
-- Main suspect (not proven): WebSocket events/answers are sent from the control task (`AsyncWebSocket::text/textAll`),
-  but the library deletes a client in the network task when it disconnects, and its client list has no lock
-  (neither the ottowinter/esphome copy 3.4.0 nor mathieucarbou's 3.6.0 locks it). A client closing during a send is a
-  use-after-free. The destructor of the client frees its queues before it announces the disconnect, so a registry of
-  my own cannot close that window.
-- Diagnostic added: the control task checks the whole heap every 2 s and logs `HEAP CORRUPTION DETECTED` right after the
-  damage happens, next to the `REST`/`WS` lines that show what was going on (`kHeapCheckEveryLoops` in `Firmware.cpp`).
-- Evidence so far: two crashes (old build, then the build with the heap check), both about 30 s after the WebSocket
-  client connected, i.e. when `ws-check` closed the connection, with the same backtrace (`tcp_close`). The second one
-  was a "Bad tail" instead of "Bad head", and the 2-second heap check logged nothing before it, so the damage is done
-  during the disconnect itself. REST (all work in the network task) never crashed over dozens of calls.
-- Experiment firmware: `pio run -e esp-wrover-kit-nowssend -t upload` is identical but the WebSocket never sends
-  anything (`WS_DISABLE_SENDS`). Run `tools\ws-check.ps1` three times: no crash = sending from the control task is
-  the cause; still crashes = the problem is in the library/connection handling itself.
-- First experiment attempt was inconclusive: the script received answers and events, so the board ran the NORMAL
-  firmware (in the no-send build `ws-check` prints "Answers to commands: 0"). On the normal firmware three disconnects
-  in a row did not crash. So the crash is intermittent (consistent with a race, but three clean runs prove nothing).
-- Next: `tools\ws-stress.ps1` connects and disconnects many times at random moments (optionally dropping the
-  connection abruptly) and then checks whether the board still answers. Run it against both builds:
-  `.\tools\ws-stress.ps1 -Cycles 60 -Abrupt` on the normal firmware (expected: a crash within a few dozen cycles if
-  the race theory is right) and on `esp-wrover-kit-nowssend` (expected: no crash). Compare.
-- RESULT of the stress runs (`ws-stress.ps1 -Cycles 60 -Abrupt`):
-  - normal firmware (ELF 5d899617f5910ac3): crashed on cycle 15 (CORRUPT HEAP, `tcp_close`).
-  - no-send firmware (ELF a3ab9cbbeafaa9d3, confirmed by `ws-check`: 0 answers, no events): crashed too, twice (cycle 17,
-    and about 13 s after reboot with only 4 clients). Same backtrace. The corrupted header holds 0x3ffc8d04 every time
-    (a heap address at the very start of the heap, same in both builds).
-  - So the theory "sending from the control task races with the disconnect" is WRONG. The crash is in the connection
-    handling itself: `tcp_close` called by AsyncTCP (`_tcp_close_api`), on lwIP's TCP thread.
-- Likely cause now: the combination AsyncTCP-esphome 2.1.4 (what ESPAsyncWebServer-esphome 3.4.0 depends on) with the
-  Arduino core 2.0.17 / IDF 4.4 that the official platform ships, or a bug in how AsyncTCP closes connections.
-  Not proven. REST has not been stress tested; ~30 manual calls were fine.
-- The Arduino core has the built-in HTTP server with WebSocket support (`CONFIG_HTTPD_WS_SUPPORT 1`,
-  `httpd_ws_send_frame_async` is meant to be used from other tasks); it is the alternative to the async libraries.
-- Options if the WebSocket is confirmed as the cause: (a) a patched copy of the web server library in `lib/` with a
-  lock around the client list, (b) send WebSocket data only from the network task, (c) keep REST only. REST is not
-  affected: its handlers run in the network task.
+### Heap corruption on connection close: moved to the built-in HTTP server (done, to confirm on the board)
+- Symptom: `CORRUPT HEAP: Bad head ... multi_heap_free`, then reboot, within ~15 WebSocket connect/disconnect cycles.
+  The decoded backtrace always ended in lwIP `tcp_close` called by AsyncTCP (`_tcp_close_api`). The firmware crashed with
+  the normal build AND with a build where the WebSocket never sent anything, so my own sends from the control task were
+  not the cause (that theory was tested and disproved). The corrupted header held the same value every time
+  (`0x3ffc8d04`, the start of the heap).
+- Decision (project owner): replace ESPAsyncWebServer + AsyncTCP with the `esp_http_server` of the ESP32 core
+  (WebSocket support is enabled there). No library is added; two are removed.
+- Design: `HttpServer` starts the server; `RestApi` and `WebSocketServer` register routes. Every socket call happens in
+  the server's own task. The control task only calls `httpd_queue_work` to hand a message over (answers and events), so
+  no socket is touched from two tasks. Client ids are socket numbers. Unknown paths answer 404 and wrong methods 405.
+- To confirm on the board: run `.\tools\ws-stress.ps1 -Cycles 100 -Abrupt` and `.\tools\rest-stress.ps1 -Requests 500`
+  (also both at the same time). Expect no `CORRUPT HEAP`. The 2-second heap check stays in `Firmware.cpp` for now.
+- Removed: the `esp-wrover-kit-nowssend` experiment environment and the `WS_DISABLE_SENDS` switch.
 
 ### Boot crash after adding REST: duplicate AsyncTCP (fixed)
 - Symptom: boot loop with `LoadProhibited` (address 0x138) right after WiFi start; before that every REST path

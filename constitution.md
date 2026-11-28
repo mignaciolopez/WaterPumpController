@@ -9,7 +9,8 @@ This document is the source of truth for architecture and rules. Changes to it n
   Language standard: **C++17** (`-std=gnu++17`), the same for the ESP32 build and the native tests.
   Moving to a newer standard requires switching platform (pioarduino) and needs approval.
 - **Test:** PlatformIO `native` env + GoogleTest (runs on the PC, no hardware). Unity is not used.
-- **Libraries:** ArduinoJson, ESPAsyncWebServer-esphome, AsyncTCP-esphome, ESP32Ping (watchdog rule).
+- **Libraries:** ArduinoJson, ESP32Ping (watchdog rule). The HTTP server is the `esp_http_server` that ships with the ESP32
+  core (REST and WebSocket); ESPAsyncWebServer and AsyncTCP were removed because they corrupted the heap when connections closed.
   DHT / Adafruit Unified Sensor stay for the future weather adapter only.
   Removed: WiFiManager, NewPing (the old HC-SR04 driver is gone; A02YYUW_PWM/A02YYUW_UART replace it).
 - **Storage:** SPIFFS, behind the `IStore` port
@@ -34,7 +35,7 @@ src/
     actuators/       Relay
     storage/         SpiffsStore
     platform/        SntpClock, FreeRtosScheduler, WiFi/Network, Ping
-    net/             WebSocketServer (/ws/v1), RestApi (/api/v1), shared CommandQueue and SnapshotCache (later: MQTT)
+    net/             HttpServer (esp_http_server), WebSocketServer (/ws/v1), RestApi (/api/v1), shared CommandQueue and SnapshotCache (later: MQTT)
     codec/           Wire formats: CodecV1 (WebSocket), RestCodec (REST), CodecCommon (shared JSON shapes)
   app/             Composition root and application logic.
     Controller       wires core pieces, turns commands/state changes into protocol messages (testable)
@@ -102,6 +103,7 @@ Full specification lives in `docs/protocol.md`.
 - Before changing this constitution
 
 ### NEVER DO:
+- Never touch a network socket from more than one task: hand work to the HTTP server task (`httpd_queue_work`)
 - Never include Arduino, ESP-IDF, FreeRTOS or ArduinoJson headers in `core/`
 - Never use singletons or mutable globals
 - Never hardcode secrets (WiFi credentials, tokens); use `secrets.h` (git-ignored) or provisioning

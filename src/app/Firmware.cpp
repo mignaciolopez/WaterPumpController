@@ -44,9 +44,9 @@ namespace CE::App
                               : static_cast<Core::IDistanceSensor&>(_distancePwm)),
           _clock(profile.ntpServer),
           _wifi(profile.wifiSsid, profile.wifiPassword),
-          _http(profile.httpPort),
+          _http(profile.httpPort, _log),
           _server(_http, _commands, _log),
-          _rest(_http, _commands, _snapshot, _log),
+          _rest(_http, _commands, _snapshot),
           _controller(_relay, _xkcLow, _xkcHigh, _clock, _store, _log, _server),
           _watchdog(_wifi, _restarter, _log)
     {
@@ -85,9 +85,11 @@ namespace CE::App
         }
 
         UpdateSnapshot();  // so a REST read before the first control loop already has data
-        _server.Begin();   // register /ws/v1
-        _rest.Begin();     // register /api/v1/...
-        _http.begin();
+        if (!_http.Begin() || !_server.Begin() || !_rest.Begin())  // start, then register /ws/v1 and /api/v1/...
+        {
+            _log.Log(Core::LogLevel::Error, kTag, "HTTP server failed to start");
+            return false;
+        }
         _log.Log(Core::LogLevel::Info, kTag, "HTTP server started: WebSocket /ws/v1, REST /api/v1");
 
         _samples = xQueueCreate(kSampleQueueLength, sizeof(DistanceSample));
@@ -191,7 +193,6 @@ namespace CE::App
 
             if (++loops % kCleanupEveryLoops == 0)
             {
-                _server.Cleanup();
                 ESP_LOGD(kTag, "control task stack free (min): %u bytes; heap free %u, lowest %u", uxTaskGetStackHighWaterMark(nullptr),
                          static_cast<unsigned>(ESP.getFreeHeap()), static_cast<unsigned>(ESP.getMinFreeHeap()));
             }

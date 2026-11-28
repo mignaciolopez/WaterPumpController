@@ -116,6 +116,11 @@ The table in `src/core/Settings.cpp` is the source of truth; this table must mat
 | `PUMP_FAULT` | Pump is in fault (clock not synced, or inconsistent level sensors) |
 | `INTERNAL` | Unexpected device error |
 
+## Clients and connections
+A client's id in the device log and in `WS #<n>` lines is its socket number; it has no meaning for clients. The
+device serves at most 6 connections at once (REST and WebSocket together); when more arrive, the one idle the
+longest is dropped. Messages are limited to 1024 bytes: a larger message closes the connection.
+
 ## Trying it from Windows
 `tools/ws-check.ps1` connects to `/ws/v1`, sends `state.get` and `settings.get`, and prints every message the
 device sends (answers and pushed events) for a few seconds. No extra tools are needed.

@@ -7,9 +7,8 @@
 #include <cstdint>
 
 #include "adapters/actuators/RelaySwitch.h"
-#include <ESPAsyncWebServer.h>
-
 #include "adapters/net/CommandQueue.h"
+#include "adapters/net/HttpServer.h"
 #include "adapters/net/RestApi.h"
 #include "adapters/net/SnapshotCache.h"
 #include "adapters/net/WebSocketServer.h"
@@ -74,7 +73,7 @@ namespace CE::App
         Adapters::SntpClock _clock;
         Adapters::WifiNetwork _wifi;
         Adapters::EspRestarter _restarter;
-        AsyncWebServer _http;                 // one server: WebSocket and REST share it
+        Adapters::HttpServer _http;           // one server (ESP-IDF esp_http_server): WebSocket and REST share it
         Adapters::CommandQueue _commands;     // network tasks -> control task
         Adapters::SnapshotCache _snapshot;    // control task -> REST reads
         Adapters::WebSocketServer _server;
