@@ -93,6 +93,16 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
   connection abruptly) and then checks whether the board still answers. Run it against both builds:
   `.\tools\ws-stress.ps1 -Cycles 60 -Abrupt` on the normal firmware (expected: a crash within a few dozen cycles if
   the race theory is right) and on `esp-wrover-kit-nowssend` (expected: no crash). Compare.
+- RESULT of the stress runs (`ws-stress.ps1 -Cycles 60 -Abrupt`):
+  - normal firmware (ELF 5d899617f5910ac3): crashed on cycle 15 (CORRUPT HEAP, `tcp_close`).
+  - no-send firmware (ELF a3ab9cbbeafaa9d3, confirmed by `ws-check`: 0 answers, no events): crashed too, twice (cycle 17,
+    and about 13 s after reboot with only 4 clients). Same backtrace. The corrupted header holds 0x3ffc8d04 every time
+    (a heap address at the very start of the heap, same in both builds).
+  - So the theory "sending from the control task races with the disconnect" is WRONG. The crash is in the connection
+    handling itself: `tcp_close` called by AsyncTCP (`_tcp_close_api`), on lwIP's TCP thread.
+- Likely cause now: the combination AsyncTCP-esphome 2.1.4 (what ESPAsyncWebServer-esphome 3.4.0 depends on) with the
+  Arduino core 2.0.17 / IDF 4.4 that the official platform ships, or a bug in how AsyncTCP closes connections.
+  Not proven. REST has not been stress tested; ~30 manual calls were fine.
 - The Arduino core has the built-in HTTP server with WebSocket support (`CONFIG_HTTPD_WS_SUPPORT 1`,
   `httpd_ws_send_frame_async` is meant to be used from other tasks); it is the alternative to the async libraries.
 - Options if the WebSocket is confirmed as the cause: (a) a patched copy of the web server library in `lib/` with a
