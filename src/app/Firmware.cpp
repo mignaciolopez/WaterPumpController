@@ -1,6 +1,7 @@
 #include "app/Firmware.h"
 
 #include <Arduino.h>
+#include <esp_heap_caps.h>
 
 #include "adapters/codec/RestCodec.h"
 
@@ -18,6 +19,10 @@ namespace CE::App
 
         constexpr uint32_t kControlPeriodMs = 250;
         constexpr uint32_t kCleanupEveryLoops = 40;  // every 10 s
+
+        // Debug aid: walk the whole heap this often and log as soon as it is damaged, so the damage can be
+        // matched with the REST/WS lines just before it. 0 turns it off.
+        constexpr uint32_t kHeapCheckEveryLoops = 8;  // every 2 s
         constexpr size_t kSampleQueueLength = 8;
 
         // Serial 0 is the console, so anything but 1 selects UART2.
@@ -155,6 +160,7 @@ namespace CE::App
     void Firmware::ControlLoop()
     {
         uint32_t loops = 0;
+        bool heapDamaged = false;
 
         for (;;)
         {
@@ -175,10 +181,19 @@ namespace CE::App
             _controller.Update();
             UpdateSnapshot();
 
+            if (kHeapCheckEveryLoops != 0 && loops % kHeapCheckEveryLoops == 0 && !heapDamaged &&
+                !heap_caps_check_integrity_all(true))
+            {
+                heapDamaged = true;  // the details were printed above; log the rest only once
+                _log.Log(Core::LogLevel::Error, kTag,
+                         "HEAP CORRUPTION DETECTED: something wrote outside its memory. See the REST/WS lines before this one.");
+            }
+
             if (++loops % kCleanupEveryLoops == 0)
             {
                 _server.Cleanup();
-                ESP_LOGD(kTag, "control task stack free (min): %u bytes", uxTaskGetStackHighWaterMark(nullptr));
+                ESP_LOGD(kTag, "control task stack free (min): %u bytes; heap free %u, lowest %u", uxTaskGetStackHighWaterMark(nullptr),
+                         static_cast<unsigned>(ESP.getFreeHeap()), static_cast<unsigned>(ESP.getMinFreeHeap()));
             }
         }
     }

@@ -67,6 +67,22 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - Compile-checked only: the REST endpoints have NOT been exercised on the board yet (see the REST checks below)
 - Profile field `webSocketPort` renamed to `httpPort`
 
+### OPEN: heap corruption crash after the WebSocket check (not fixed yet)
+- Symptom: `CORRUPT HEAP: Bad head at 0x3ffda5d4 ... assert failed: multi_heap_free`, then reboot. Decoded backtrace:
+  `tcp_close` in lwIP (called from `_tcp_close_api` of AsyncTCP) freeing a TCP connection, i.e. when a connection closed.
+  The firmware on the board matched the build (same ELF checksum). Seen after `tools/ws-check.ps1` had run.
+- That is only where it was noticed: something wrote outside its memory earlier.
+- Main suspect (not proven): WebSocket events/answers are sent from the control task (`AsyncWebSocket::text/textAll`),
+  but the library deletes a client in the network task when it disconnects, and its client list has no lock
+  (neither the ottowinter/esphome copy 3.4.0 nor mathieucarbou's 3.6.0 locks it). A client closing during a send is a
+  use-after-free. The destructor of the client frees its queues before it announces the disconnect, so a registry of
+  my own cannot close that window.
+- Diagnostic added: the control task checks the whole heap every 2 s and logs `HEAP CORRUPTION DETECTED` right after the
+  damage happens, next to the `REST`/`WS` lines that show what was going on (`kHeapCheckEveryLoops` in `Firmware.cpp`).
+- Options if the WebSocket is confirmed as the cause: (a) a patched copy of the web server library in `lib/` with a
+  lock around the client list, (b) send WebSocket data only from the network task, (c) keep REST only. REST is not
+  affected: its handlers run in the network task.
+
 ### Boot crash after adding REST: duplicate AsyncTCP (fixed)
 - Symptom: boot loop with `LoadProhibited` (address 0x138) right after WiFi start; before that every REST path
   answered 500. The backtrace (decoded with addr2line against the built ELF) pointed at `AsyncWebServer::onNotFound`.
