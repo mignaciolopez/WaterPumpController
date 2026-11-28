@@ -3,7 +3,7 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 
 ## Summary
 - **Steps Completed:** 6 / 6 (steps 5 and 6 done together)
-- **Current Step:** Done - flash to the board and verify on hardware (see Hardware checklist)
+- **Current Step:** Done - hardware checklist completed on the board (item 4, A02YYUW_UART, skipped for now)
 - **Checks (last run):** `pio test -e native` all passing · `pio run -e esp-wrover-kit` builds
 
 ## Task Log
@@ -64,17 +64,20 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
   (every `radarDelayS`). Failed readings are not logged here.
 - Done in `app/Controller`, so it works with either A02YYUW mode and is covered by native tests
 
-## Hardware checklist (nothing below has run on the board yet)
-0. A02YYUW pins follow your wiring, which is the reverse of the old Pins.hpp: GPIO 19 = ESP RX <- A02YYUW TX,
+## Hardware checklist (verified on the board by the project owner)
+0. [done] A02YYUW pins follow your wiring, which is the reverse of the old Pins.hpp: GPIO 19 = ESP RX <- A02YYUW TX,
    GPIO 18 = ESP TX -> A02YYUW RX.
-1. Check the XKC_Y23 wiring: Low on GPIO 26, High on GPIO 27 (old code swapped them). With the pump
+1. [done] Check the XKC_Y23 wiring: Low on GPIO 26, High on GPIO 27 (old code swapped them). With the pump
    disconnected, wet/dry each sensor and read `state.get`; wrong wiring shows a `sensorInconsistent` fault.
-2. Confirm the relay is off at boot and switches with `pump.set`.
-3. Confirm WiFi connects, time syncs (pump leaves the `noTime` fault) and `ws://<ip>/ws/v1` answers `state.get`.
-4. If you use `A02YYUW_UART`, set `distanceSensor` in the profile and check the RX/TX wiring (a swapped pair
+2. [confirmed] Confirm the relay is off at boot and switches with `pump.set`.
+3. [confirmed] Confirm WiFi connects, time syncs (pump leaves the `noTime` fault) and `ws://<ip>/ws/v1` answers `state.get`.
+4. [skipped for now] If you use `A02YYUW_UART`, set `distanceSensor` in the profile and check the RX/TX wiring (a swapped pair
    gives no readings, so the level stays unknown).
-5. Watch stack headroom (debug log every 10 s) and tune the task stack sizes in `Firmware.cpp`.
-6. Set `utcOffsetMinutes` for your location if it is not UTC-3.
+5. [done] Watch stack headroom (debug log every 10 s) and tune the task stack sizes in `Firmware.cpp`.
+6. [done] Set `utcOffsetMinutes` for your location if it is not UTC-3.
+
+Consequences: the early start of the WebSocket server (before WiFi is connected) works, and the
+A02YYUW_PWM wiring and the XKC_Y23 pins are correct as in `EspWroverKit.h`. `A02YYUW_UART` is still untested on hardware.
 
 ## Open Questions / Assumptions to confirm
 - Level formula: `level = height - (distance + filteredDistanceOffsetCm)`, clamped to 0..height
