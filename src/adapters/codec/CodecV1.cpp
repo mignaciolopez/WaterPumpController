@@ -2,8 +2,9 @@
 
 #include <ArduinoJson.h>
 
-#include <cmath>
 #include <cstring>
+
+#include "adapters/codec/CodecCommon.h"
 
 namespace CE::Adapters::CodecV1
 {
@@ -11,60 +12,11 @@ namespace CE::Adapters::CodecV1
 
     namespace
     {
-        const char* ModeName(const PumpMode mode)
-        {
-            switch (mode)
-            {
-                case PumpMode::Idle:     return "idle";
-                case PumpMode::Running:  return "running";
-                case PumpMode::Cooldown: return "cooldown";
-                case PumpMode::Fault:    return "fault";
-            }
-            return "idle";
-        }
-
-        const char* FaultName(const PumpFault fault)
-        {
-            switch (fault)
-            {
-                case PumpFault::None:               return "none";
-                case PumpFault::NoTime:             return "noTime";
-                case PumpFault::SensorInconsistent: return "sensorInconsistent";
-            }
-            return "none";
-        }
-
         std::string Serialize(const JsonDocument& doc)
         {
             std::string out;
             serializeJson(doc, out);
             return out;
-        }
-
-        void FillPump(const JsonObject out, const PumpState& pump)
-        {
-            out["mode"] = ModeName(PumpModeOf(pump));
-            out["on"] = pump.isOn;
-            out["cooldown"] = pump.isOnCooldown;
-            out["fault"] = FaultName(pump.fault);
-            out["onAt"] = pump.timeStampOn;
-            out["offAt"] = pump.timeStampOff;
-            out["cooldownAt"] = pump.timeStampCooldown;
-        }
-
-        void FillLevel(const JsonObject out, const bool valid, const float cm)
-        {
-            if (valid) out["cm"] = std::round(cm * 10.0f) / 10.0f;  // 0.1 cm resolution
-            else out["cm"] = nullptr;
-        }
-
-        void FillSettings(const JsonObject out, const Settings& settings)
-        {
-            for (size_t i = 0; i < SettingFieldCount(); ++i)
-            {
-                const SettingField& field = SettingFieldAt(i);
-                out[field.name] = settings.*(field.member);
-            }
         }
 
         DecodeResult Fail(const ErrorCode error, const int32_t id = Command::kNoId)
@@ -73,47 +25,6 @@ namespace CE::Adapters::CodecV1
             result.error = error;
             result.command.id = id;
             return result;
-        }
-
-        bool ReadSettingValues(const JsonVariantConst data, Command& command, ErrorCode& error)
-        {
-            if (!data.is<JsonObjectConst>())
-            {
-                error = ErrorCode::BadRequest;
-                return false;
-            }
-
-            for (const JsonPairConst pair : data.as<JsonObjectConst>())
-            {
-                if (command.valueCount >= Command::kMaxSettingValues)
-                {
-                    error = ErrorCode::BadRequest;
-                    return false;
-                }
-
-                const char* name = pair.key().c_str();
-                if (std::strlen(name) >= SettingValue::kMaxNameLength)
-                {
-                    error = ErrorCode::UnknownField;
-                    return false;
-                }
-                if (!pair.value().is<long long>())
-                {
-                    error = ErrorCode::InvalidValue;
-                    return false;
-                }
-
-                SettingValue& value = command.values[command.valueCount++];
-                std::strcpy(value.name, name);
-                value.value = pair.value().as<long long>();
-            }
-
-            if (command.valueCount == 0)
-            {
-                error = ErrorCode::BadRequest;
-                return false;
-            }
-            return true;
         }
     }
 
@@ -137,9 +48,8 @@ namespace CE::Adapters::CodecV1
 
         if (std::strcmp(name, "pump.set") == 0)
         {
-            if (!data["on"].is<bool>()) return Fail(ErrorCode::BadRequest, id);
-            result.command.type = CommandType::PumpSet;
-            result.command.on = data["on"].as<bool>();
+            const ErrorCode error = Codec::ReadPumpSet(data, result.command);
+            if (error != ErrorCode::None) return Fail(error, id);
         }
         else if (std::strcmp(name, "state.get") == 0)
         {
@@ -151,9 +61,8 @@ namespace CE::Adapters::CodecV1
         }
         else if (std::strcmp(name, "settings.set") == 0)
         {
-            result.command.type = CommandType::SettingsSet;
-            ErrorCode error = ErrorCode::None;
-            if (!ReadSettingValues(data, result.command, error)) return Fail(error, id);
+            const ErrorCode error = Codec::ReadSettingsSet(data, result.command);
+            if (error != ErrorCode::None) return Fail(error, id);
         }
         else
         {
@@ -187,8 +96,8 @@ namespace CE::Adapters::CodecV1
         doc["id"] = id;
         doc["ok"] = true;
         const JsonObject data = doc["data"].to<JsonObject>();
-        FillPump(data["pump"].to<JsonObject>(), pump);
-        FillLevel(data["level"].to<JsonObject>(), levelValid, levelCm);
+        Codec::FillPump(data["pump"].to<JsonObject>(), pump);
+        Codec::FillLevel(data["level"].to<JsonObject>(), levelValid, levelCm);
         return Serialize(doc);
     }
 
@@ -197,7 +106,7 @@ namespace CE::Adapters::CodecV1
         JsonDocument doc;
         doc["id"] = id;
         doc["ok"] = true;
-        FillSettings(doc["data"].to<JsonObject>(), settings);
+        Codec::FillSettings(doc["data"].to<JsonObject>(), settings);
         return Serialize(doc);
     }
 
@@ -205,7 +114,7 @@ namespace CE::Adapters::CodecV1
     {
         JsonDocument doc;
         doc["event"] = "pump.state";
-        FillPump(doc["data"].to<JsonObject>(), pump);
+        Codec::FillPump(doc["data"].to<JsonObject>(), pump);
         return Serialize(doc);
     }
 
@@ -213,7 +122,7 @@ namespace CE::Adapters::CodecV1
     {
         JsonDocument doc;
         doc["event"] = "tank.level";
-        FillLevel(doc["data"].to<JsonObject>(), levelValid, levelCm);
+        Codec::FillLevel(doc["data"].to<JsonObject>(), levelValid, levelCm);
         return Serialize(doc);
     }
 
@@ -221,7 +130,7 @@ namespace CE::Adapters::CodecV1
     {
         JsonDocument doc;
         doc["event"] = "settings.changed";
-        FillSettings(doc["data"].to<JsonObject>(), settings);
+        Codec::FillSettings(doc["data"].to<JsonObject>(), settings);
         return Serialize(doc);
     }
 }

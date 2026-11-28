@@ -7,6 +7,11 @@
 #include <cstdint>
 
 #include "adapters/actuators/RelaySwitch.h"
+#include <ESPAsyncWebServer.h>
+
+#include "adapters/net/CommandQueue.h"
+#include "adapters/net/RestApi.h"
+#include "adapters/net/SnapshotCache.h"
 #include "adapters/net/WebSocketServer.h"
 #include "adapters/platform/EspLog.h"
 #include "adapters/platform/EspRestarter.h"
@@ -50,6 +55,8 @@ namespace CE::App
         void NetworkLoop();
 
         void ShareSettings();
+        void UpdateSnapshot();
+        void HandleIncoming(const Adapters::Incoming& incoming);
 
         static constexpr const char* kTag = "Firmware";
 
@@ -67,12 +74,17 @@ namespace CE::App
         Adapters::SntpClock _clock;
         Adapters::WifiNetwork _wifi;
         Adapters::EspRestarter _restarter;
+        AsyncWebServer _http;                 // one server: WebSocket and REST share it
+        Adapters::CommandQueue _commands;     // network tasks -> control task
+        Adapters::SnapshotCache _snapshot;    // control task -> REST reads
         Adapters::WebSocketServer _server;
+        Adapters::RestApi _rest;
 
         Controller _controller;
         Core::NetworkWatchdog _watchdog;
 
         QueueHandle_t _samples = nullptr;
+        uint32_t _snapshotRevision = UINT32_MAX;  // revision the snapshot was built from
 
         // Copies of settings other tasks need; written by the control task only.
         std::atomic<uint32_t> _sensorDelayMs{1000};

@@ -78,6 +78,72 @@ namespace
         EXPECT_TRUE(Parse(sink.broadcasts[1])["data"]["cm"].isNull());
     }
 
+    // ---- Execute (REST) and Revision
+
+    TEST_F(ControllerTest, ExecuteReturnsTheOutcomeAndSendsNoResponse)
+    {
+        low.wet = false;
+
+        const auto outcome = controller.Execute(PumpSet(true, 1));
+
+        EXPECT_EQ(outcome.error, ErrorCode::None);
+        EXPECT_TRUE(relay.on);
+        EXPECT_TRUE(sink.sent.empty());
+        EXPECT_FALSE(sink.broadcasts.empty());   // WebSocket clients still hear about the new state
+    }
+
+    TEST_F(ControllerTest, ExecuteReportsRefusals)
+    {
+        high.wet = true;
+
+        EXPECT_EQ(controller.Execute(PumpSet(true, 1)).error, ErrorCode::HighLevel);
+        EXPECT_TRUE(sink.sent.empty());
+    }
+
+    TEST_F(ControllerTest, ExecuteSettingsBroadcastsTheChange)
+    {
+        const auto outcome = controller.Execute(SetSetting("pumpMaxTimeOnM", 30, 1));
+
+        EXPECT_TRUE(outcome.settingsChanged);
+        EXPECT_EQ(controller.GetSettings().pumpMaxTimeOnM, 30);
+        bool announced = false;
+        for (const auto& b : sink.broadcasts) announced = announced || Parse(b)["event"] == std::string("settings.changed");
+        EXPECT_TRUE(announced);
+    }
+
+    TEST_F(ControllerTest, RevisionOnlyChangesWhenSomethingChanged)
+    {
+        controller.Update();
+        const uint32_t start = controller.Revision();
+
+        controller.Update();
+        EXPECT_EQ(controller.Revision(), start);
+
+        low.wet = false;           // pump starts
+        controller.Update();
+        const uint32_t afterPump = controller.Revision();
+        EXPECT_GT(afterPump, start);
+
+        Feed(90);                  // level becomes known
+        controller.Update();
+        const uint32_t afterLevel = controller.Revision();
+        EXPECT_GT(afterLevel, afterPump);
+
+        controller.Execute(SetSetting("minLevelCm", 60, 1));
+        EXPECT_GT(controller.Revision(), afterLevel);
+    }
+
+    TEST_F(ControllerTest, StateAccessorsReflectTheCurrentState)
+    {
+        Feed(90);
+        low.wet = false;
+        controller.Update();
+
+        EXPECT_TRUE(controller.GetPumpState().isOn);
+        EXPECT_TRUE(controller.HasLevel());
+        EXPECT_NEAR(controller.LevelCm(), 50.0f, 0.01f);
+    }
+
     // ---- logging
 
     std::vector<std::string> LogsFor(const Fakes::FakeLog& log, const std::string& tag)

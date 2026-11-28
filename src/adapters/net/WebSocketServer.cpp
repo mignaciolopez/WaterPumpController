@@ -4,33 +4,19 @@
 
 namespace CE::Adapters
 {
-    WebSocketServer::WebSocketServer(const uint16_t port) : _server(port), _socket("/ws/v1")
+    WebSocketServer::WebSocketServer(AsyncWebServer& server, CommandQueue& commands)
+        : _server(server), _commands(commands), _socket("/ws/v1")
     {
     }
 
-    WebSocketServer::~WebSocketServer()
+    void WebSocketServer::Begin()
     {
-        if (_queue != nullptr) vQueueDelete(_queue);
-    }
-
-    bool WebSocketServer::Begin()
-    {
-        _queue = xQueueCreate(kQueueLength, sizeof(Incoming));
-        if (_queue == nullptr) return false;
-
         _socket.onEvent([this](AsyncWebSocket*, AsyncWebSocketClient* client, const AwsEventType type, void* arg,
                                uint8_t* data, const size_t length)
         {
             OnEvent(client, type, arg, data, length);
         });
         _server.addHandler(&_socket);
-        _server.begin();
-        return true;
-    }
-
-    bool WebSocketServer::Poll(Incoming& out)
-    {
-        return _queue != nullptr && xQueueReceive(_queue, &out, 0) == pdTRUE;
     }
 
     void WebSocketServer::Send(const uint32_t clientId, const std::string& message)
@@ -78,7 +64,7 @@ namespace CE::Adapters
         incoming.clientId = client->id();
         incoming.command = decoded.command;
 
-        if (xQueueSend(_queue, &incoming, 0) != pdTRUE)
+        if (!_commands.Push(incoming))
             Send(client->id(), CodecV1::EncodeError(decoded.command.id, Core::ErrorCode::Internal));
     }
 }

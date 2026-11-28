@@ -56,6 +56,17 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - `A02YYUW_UART`: the old code computed `((high << 8) | low) * 100`, but the sensor reports millimetres, so the new
   driver uses `mm / 10` (cm). The frame parser (`A02YYUW_Frame`) is native-tested
 
+### REST API (done)
+- `docs/rest-api.md`: `GET /api/v1/state`, `GET /api/v1/settings`, `POST /api/v1/pump`, `PUT /api/v1/settings`
+  (read + control, no authentication - chosen by the project owner)
+- `adapters/codec/CodecCommon` holds the JSON shapes shared by WebSocket and REST; `RestCodec` has the REST bodies
+  and HTTP status mapping (native-tested)
+- `adapters/net/RestApi`, `CommandQueue` (+ `RestTicket`), `SnapshotCache`; WebSocket and REST share one
+  `AsyncWebServer` and one command queue. Reads are served from a cache; writes wait up to 2 s for the control task
+- `Controller::Execute()` and `Revision()`; the control task sleeps on the command queue, so commands run at once
+- Compile-checked only: the REST endpoints have NOT been exercised on the board yet (see the REST checks below)
+- Profile field `webSocketPort` renamed to `httpPort`
+
 ### Sensor logging (done)
 - `XKC_Y23` (tag `XKC_Y23`, Info): logs the initial state of the Low and High sensors, then every change
   ("Low: water detected" / "Low: no water", same for High)
@@ -78,6 +89,14 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 
 Consequences: the early start of the WebSocket server (before WiFi is connected) works, and the
 A02YYUW_PWM wiring and the XKC_Y23 pins are correct as in `EspWroverKit.h`. `A02YYUW_UART` is still untested on hardware.
+
+## REST checks on the board (not done yet)
+1. `curl http://<ip>/api/v1/state` and `/api/v1/settings` return JSON.
+2. `POST /api/v1/pump` with `{"on":true}` switches the pump (pump disconnected first); a second call right away
+   answers `409 PUMP_TOO_SOON`.
+3. `PUT /api/v1/settings` with a valid and an invalid value (`200`, then `422`).
+4. A write without `Content-Type: application/json` answers `415`.
+5. The WebSocket at `/ws/v1` still works while REST is used, and sees the events caused by REST writes.
 
 ## Open Questions / Assumptions to confirm
 - Level formula: `level = height - (distance + filteredDistanceOffsetCm)`, clamped to 0..height

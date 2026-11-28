@@ -90,7 +90,23 @@ namespace CE::App
                 break;
         }
 
-        if (outcome.settingsChanged) _sink.Broadcast(Codec::EncodeSettingsChangedEvent(_settings));
+        Announce(outcome);
+    }
+
+    CommandOutcome Controller::Execute(const Command& command)
+    {
+        const CommandOutcome outcome = _handler.Handle(command);
+        Announce(outcome);
+        return outcome;
+    }
+
+    void Controller::Announce(const CommandOutcome& outcome)
+    {
+        if (outcome.settingsChanged)
+        {
+            ++_revision;
+            _sink.Broadcast(Codec::EncodeSettingsChangedEvent(_settings));
+        }
         PublishChanges();
     }
 
@@ -122,6 +138,7 @@ namespace CE::App
         if (!_published || !SamePump(pump, _lastPump))
         {
             _lastPump = pump;
+            ++_revision;
             _sink.Broadcast(Codec::EncodePumpStateEvent(pump));
         }
 
@@ -131,6 +148,7 @@ namespace CE::App
         {
             _lastLevelValid = levelValid;
             _lastLevelCm = levelCm;
+            ++_revision;
             _sink.Broadcast(Codec::EncodeTankLevelEvent(levelValid, levelCm));
         }
 

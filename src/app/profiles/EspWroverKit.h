@@ -24,6 +24,6 @@ namespace CE::App
         /* wifiSsid       */ WIFI_SSID,
         /* wifiPassword   */ WIFI_PASS,
         /* ntpServer      */ "pool.ntp.org",
-        /* webSocketPort  */ 80,
+        /* httpPort       */ 80,
     };
 }

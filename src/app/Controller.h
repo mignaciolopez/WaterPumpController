@@ -39,17 +39,29 @@ namespace CE::App
 
         void OnDistance(const DistanceSample& sample);
 
-        /// Executes a command and answers `clientId`.
+        /// Executes a command and answers `clientId` with a WebSocket protocol response.
         void OnCommand(uint32_t clientId, const Core::Command& command);
+
+        /// Executes a command and returns the outcome; the caller builds the reply (REST).
+        /// Events are still broadcast to WebSocket clients.
+        Core::CommandOutcome Execute(const Core::Command& command);
 
         /// Runs the pump and tank logic and broadcasts what changed.
         void Update();
 
         const Core::Settings& GetSettings() const { return _settings; }
+        const Core::PumpState& GetPumpState() const { return _pump.State(); }
+        bool HasLevel() const { return _tank.HasLevel(); }
+        float LevelCm() const { return _tank.LevelCm(); }
+
+        /// Increases whenever the pump state, the level or the settings changed. Lets other tasks know
+        /// when a cached copy of the state is out of date.
+        uint32_t Revision() const { return _revision; }
 
     private:
         void PublishChanges();
         void LogXkcChanges();
+        void Announce(const Core::CommandOutcome& outcome);
 
         Core::Settings _settings;
         Core::IMessageSink& _sink;
@@ -66,6 +78,7 @@ namespace CE::App
 
         // What clients were last told, to publish only changes.
         bool _published = false;
+        uint32_t _revision = 0;
         Core::PumpState _lastPump;
         bool _lastLevelValid = false;
         float _lastLevelCm = 0.0f;

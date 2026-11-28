@@ -34,8 +34,8 @@ src/
     actuators/       Relay
     storage/         SpiffsStore
     platform/        SntpClock, FreeRtosScheduler, WiFi/Network, Ping
-    net/             WebSocketServer (later: MQTT, REST)
-    codec/           Versioned JSON protocol (the only place that knows the wire format)
+    net/             WebSocketServer (/ws/v1), RestApi (/api/v1), shared CommandQueue and SnapshotCache (later: MQTT)
+    codec/           Wire formats: CodecV1 (WebSocket), RestCodec (REST), CodecCommon (shared JSON shapes)
   app/             Composition root and application logic.
     Controller       wires core pieces, turns commands/state changes into protocol messages (testable)
     Firmware         builds the adapters, owns the tasks (control, sensor, network)
@@ -49,13 +49,20 @@ docs/protocol.md   Wire protocol specification
 
 Rules of the dependency direction:
 - `core` depends on nothing outside `core`. `adapters` depend on `core`. `app` depends on both.
-- Interfaces (WebSocket, MQTT, ...) never call services directly. They send **commands** and subscribe to **events** on the bus.
+- Interfaces (WebSocket, REST, MQTT, ...) never call services directly. They send **commands** and subscribe to **events** on the bus.
 - Hardware, time, storage and logging are reached only through ports, so `core` can be tested with fakes.
 - No global or singleton objects. Dependencies are passed through constructors.
 - Task model: one sampling task (sensors) and one control task (rules, pump), connected by a queue.
   Shared state is owned by one task; other tasks send messages instead of sharing mutable data.
 - Adding a sensor, actuator, interface, rule or tank must not require editing `core` logic
   (a new rule or port implementation is the extension point).
+
+## REST interface
+Specified in `docs/rest-api.md` (`/api/v1/state`, `/api/v1/settings`, `/api/v1/pump`). It uses the same commands,
+data shapes and error codes as the WebSocket protocol. Reads come from a cache refreshed by the control task;
+writes go through the same command queue and wait for the control task's result. There is no authentication
+(a decision of the project owner): the device must stay on a trusted network. Write requests require
+`Content-Type: application/json` and the device sends no CORS headers.
 
 ## Protocol (versioned JSON)
 Full specification lives in `docs/protocol.md`.

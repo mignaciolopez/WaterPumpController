@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+#include "adapters/codec/RestCodec.h"
+
 namespace CE::App
 {
     namespace
@@ -37,7 +39,9 @@ namespace CE::App
                               : static_cast<Core::IDistanceSensor&>(_distancePwm)),
           _clock(profile.ntpServer),
           _wifi(profile.wifiSsid, profile.wifiPassword),
-          _server(profile.webSocketPort),
+          _http(profile.httpPort),
+          _server(_http, _commands),
+          _rest(_http, _commands, _snapshot),
           _controller(_relay, _xkcLow, _xkcHigh, _clock, _store, _log, _server),
           _watchdog(_wifi, _restarter, _log)
     {
@@ -69,11 +73,16 @@ namespace CE::App
         _clock.Begin();
         _wifi.Begin();
 
-        if (!_server.Begin())
+        if (!_commands.Begin())
         {
-            _log.Log(Core::LogLevel::Error, kTag, "WebSocket server failed to start");
+            _log.Log(Core::LogLevel::Error, kTag, "Cannot create command queue");
             return false;
         }
+
+        UpdateSnapshot();  // so a REST read before the first control loop already has data
+        _server.Begin();   // register /ws/v1
+        _rest.Begin();     // register /api/v1/...
+        _http.begin();
 
         _samples = xQueueCreate(kSampleQueueLength, sizeof(DistanceSample));
         if (_samples == nullptr)
@@ -116,6 +125,32 @@ namespace CE::App
         _maxReconnects = static_cast<uint16_t>(settings.maxReconnects);
     }
 
+    void Firmware::UpdateSnapshot()
+    {
+        if (_controller.Revision() == _snapshotRevision) return;
+
+        _snapshotRevision = _controller.Revision();
+        _snapshot.Set(
+            Adapters::RestCodec::EncodeState(_controller.GetPumpState(), _controller.HasLevel(), _controller.LevelCm()),
+            Adapters::RestCodec::EncodeSettings(_controller.GetSettings()));
+    }
+
+    void Firmware::HandleIncoming(const Adapters::Incoming& incoming)
+    {
+        if (incoming.ticket == nullptr)
+        {
+            _controller.OnCommand(incoming.clientId, incoming.command);  // WebSocket: answered by the controller
+            return;
+        }
+
+        // REST: run it, refresh the cache, and only then wake the HTTP handler, so a GET right after
+        // the reply already sees the result.
+        const Core::CommandOutcome outcome = _controller.Execute(incoming.command);
+        UpdateSnapshot();
+        incoming.ticket->Complete(outcome.error);
+        incoming.ticket->Release();
+    }
+
     void Firmware::ControlLoop()
     {
         uint32_t loops = 0;
@@ -125,19 +160,25 @@ namespace CE::App
             DistanceSample sample;
             while (xQueueReceive(_samples, &sample, 0) == pdTRUE) _controller.OnDistance(sample);
 
-            Adapters::WebSocketServer::Incoming incoming;
-            while (_server.Poll(incoming)) _controller.OnCommand(incoming.clientId, incoming.command);
+            // Waiting for a command is also this task's sleep: commands are handled right away,
+            // and the logic still runs every kControlPeriodMs when nothing arrives.
+            Adapters::Incoming incoming;
+            bool received = _commands.Poll(incoming, kControlPeriodMs);
+            while (received)
+            {
+                HandleIncoming(incoming);
+                received = _commands.Poll(incoming, 0);
+            }
 
             ShareSettings();
             _controller.Update();
+            UpdateSnapshot();
 
             if (++loops % kCleanupEveryLoops == 0)
             {
                 _server.Cleanup();
                 ESP_LOGD(kTag, "control task stack free (min): %u bytes", uxTaskGetStackHighWaterMark(nullptr));
             }
-
-            vTaskDelay(pdMS_TO_TICKS(kControlPeriodMs));
         }
     }
 

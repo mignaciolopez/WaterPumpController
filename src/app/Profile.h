@@ -28,6 +28,6 @@ namespace CE::App
         const char* wifiSsid;
         const char* wifiPassword;
         const char* ntpServer;
-        uint16_t    webSocketPort;
+        uint16_t    httpPort;       // serves the WebSocket (/ws/v1) and the REST API (/api/v1)
     };
 }

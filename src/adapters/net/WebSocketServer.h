@@ -1,14 +1,11 @@
 #pragma once
 
 #include <ESPAsyncWebServer.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/queue.h>
 
 #include <cstdint>
 #include <string>
-#include <type_traits>
 
-#include "core/Messages.h"
+#include "adapters/net/CommandQueue.h"
 #include "core/ports/IMessageSink.h"
 
 namespace CE::Adapters
@@ -16,28 +13,18 @@ namespace CE::Adapters
     /// WebSocket endpoint /ws/v1 (protocol v1, see docs/protocol.md).
     ///
     /// Network callbacks run in the async-TCP task, but the pump logic runs in the control task.
-    /// So this class only decodes: valid commands go into a queue that the control task drains with
-    /// Poll(); malformed messages are answered immediately without touching any pump state.
+    /// So this class only decodes: valid commands go into the shared command queue; malformed
+    /// messages are answered immediately without touching any pump state.
     class WebSocketServer final : public Core::IMessageSink
     {
     public:
-        struct Incoming
-        {
-            uint32_t      clientId = 0;
-            Core::Command command;
-        };
-
-        explicit WebSocketServer(uint16_t port = 80);
-        ~WebSocketServer();
+        WebSocketServer(AsyncWebServer& server, CommandQueue& commands);
 
         WebSocketServer(const WebSocketServer&) = delete;
         WebSocketServer& operator=(const WebSocketServer&) = delete;
 
-        /// Creates the queue and starts listening. Returns false if the queue cannot be created.
-        [[nodiscard]] bool Begin();
-
-        /// Non-blocking: takes the next queued command, if any.
-        bool Poll(Incoming& out);
+        /// Registers the endpoint. The caller starts the server.
+        void Begin();
 
         void Send(uint32_t clientId, const std::string& message) override;
         void Broadcast(const std::string& message) override;
@@ -46,14 +33,11 @@ namespace CE::Adapters
         void Cleanup();
 
     private:
-        static constexpr size_t kQueueLength = 4;
-        static_assert(std::is_trivially_copyable_v<Incoming>, "Incoming is copied through a FreeRTOS queue");
-
         void OnEvent(AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t length);
         void OnText(AsyncWebSocketClient* client, const char* text, size_t length);
 
-        AsyncWebServer _server;
+        AsyncWebServer& _server;
+        CommandQueue& _commands;
         AsyncWebSocket _socket;
-        QueueHandle_t _queue = nullptr;
     };
 }
