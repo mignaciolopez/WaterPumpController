@@ -3,7 +3,9 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 
 ## Summary
 - **Steps Completed:** 6 / 6 (steps 5 and 6 done together)
-- **Current Step:** Done - hardware checklist completed on the board (item 4, A02YYUW_UART, skipped for now)
+- **Current Step:** Done. Verified on the board, including 100/100 WebSocket cycles and 500/500 REST requests, both at the same
+  time, twice, with the pump switched on and off by faking sensor data and the water level changed by hand.
+  Not merged: the project owner merges `refactor/ports-and-adapters` manually.
 - **Checks (last run):** `pio test -e native` all passing · `pio run -e esp-wrover-kit` builds
 
 ## Task Log
@@ -80,6 +82,8 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
   `::FFFF:` prefix (the check was case sensitive).
 - CONFIRMED on the board after the fix: `ws-stress.ps1 -Cycles 100 -Abrupt` finished 100 of 100 cycles and
   `rest-stress.ps1 -Requests 500` answered all 500 as expected; the board stayed alive. Not yet run: both at the same time.
+- Both stress scripts at the same time (twice): REST 500/500, WebSocket 99/100 + 1 script-side error (the script closed with
+  `CloseAsync` while the device pushed an event; the script now uses `CloseOutputAsync`). The board stayed alive.
 - Heap was healthy in that run (about 200 KB free, no corruption): the earlier CORRUPT HEAP crashes are gone.
 - Added: the watchdog log says whether the WiFi link is down or the ping failed, and `WiFi.setSleep(false)` (a precaution,
   not proven needed; it can be reverted if you prefer the radio power saving).
@@ -167,6 +171,12 @@ A02YYUW_PWM wiring and the XKC_Y23 pins are correct as in `EspWroverKit.h`. `A02
 - Old settings not carried over yet (added back when a feature needs them): weatherDelayS, watchdog*,
   wifiReconnectTimeoutS, maxServiceRestarts, minFreeHeapThresholdKb, maxErrorReports.
   `medianMeasurementCount` and `medianWindow` were duplicates; only `medianWindow` remains.
+
+## Decisions at the end
+- The 2-second heap check in `Firmware.cpp` (`kHeapCheckEveryLoops`) stays for a few days of normal use, then it can be
+  set to 0 or removed.
+- Not done on purpose: a token for control commands, a snapshot on WebSocket connect, MQTT, UART distance sensor test.
+- REST and the WebSocket have no authentication (decided by the project owner): keep the device on a trusted network.
 
 ## Rejection Log
 None.

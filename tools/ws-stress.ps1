@@ -72,7 +72,8 @@ for ($i = 1; $i -le $Cycles; $i++) {
             $ws.Abort()
             $how = 'dropped'
         } else {
-            $ws.CloseAsync([Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'bye', $none).Wait(2000) | Out-Null
+            # Close only our side: a pushed event may arrive meanwhile, and a full CloseAsync refuses to receive it.
+            $ws.CloseOutputAsync([Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'bye', $none).Wait(2000) | Out-Null
         }
         $done++
         $failuresInARow = 0
