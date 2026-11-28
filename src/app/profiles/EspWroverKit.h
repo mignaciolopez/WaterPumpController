@@ -17,8 +17,8 @@ namespace CE::App
         /* xkcHighPin     */ 27,  // XKC_Y23 High
 
         /* distanceSensor */ DistanceSensorType::A02YYUW_PWM,
-        /* distanceRxPin  */ 18,  // ESP TX -> A02YYUW RX
-        /* distanceTxPin  */ 19,  // ESP RX <- A02YYUW TX
+        /* distanceRxPin  */ 19,  // ESP RX <- A02YYUW TX
+        /* distanceTxPin  */ 18,  // ESP TX -> A02YYUW RX
         /* distanceSerial */ 2,   // used by A02YYUW_UART only
 
         /* wifiSsid       */ WIFI_SSID,
