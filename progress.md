@@ -126,7 +126,7 @@ A02YYUW_PWM wiring and the XKC_Y23 pins are correct as in `EspWroverKit.h`. `A02
    (`minLevelCm` 0 is below `criticalLevelCm`).
 4. [confirmed] Wrong content type (`text/plain`) answers 415.
 5. [open] The WebSocket at `/ws/v1` still works while REST is used, sees the events caused by REST writes, and the
-   `WS` log lines appear.
+   `WS` log lines appear. Run `.	ools\ws-check.ps1` (tested against a fake local server, not yet against the board).
 
 ## Open Questions / Assumptions to confirm
 - Level formula: `level = height - (distance + filteredDistanceOffsetCm)`, clamped to 0..height

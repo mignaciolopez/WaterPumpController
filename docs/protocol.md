@@ -116,6 +116,15 @@ The table in `src/core/Settings.cpp` is the source of truth; this table must mat
 | `PUMP_FAULT` | Pump is in fault (clock not synced, or inconsistent level sensors) |
 | `INTERNAL` | Unexpected device error |
 
+## Trying it from Windows
+`tools/ws-check.ps1` connects to `/ws/v1`, sends `state.get` and `settings.get`, and prints every message the
+device sends (answers and pushed events) for a few seconds. No extra tools are needed.
+```powershell
+.	ools\ws-check.ps1 -Ip 192.168.100.247 -Seconds 30
+.	ools\ws-check.ps1 -Send '{"cmd":"pump.set","id":5,"data":{"on":false}}'
+```
+Make a REST call from another window while it runs to see the events it causes.
+
 ## Logging
 On the serial console (tag `WS`, Info level) the device logs clients connecting and disconnecting, every command
 it receives and every answer it sends (long answers are cut after 100 characters). Pushed events are not logged.
