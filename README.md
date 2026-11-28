@@ -33,8 +33,8 @@ and an ultrasonic distance sensor, switches a pump through a relay, and can be r
   water.
 - Protects the pump: minimum run and rest times, a maximum run time followed by a cooldown, and a safe stop when
   the sensors disagree or the clock is not available.
-- Measures the water level with an ultrasonic sensor (median-filtered) and can use it for a night mode that avoids
-  starting the pump at night unless the tank is nearly empty.
+- Measures the water level with an ultrasonic sensor (median-filtered) and reports it. The distance sensor does
+  **not** control the pump.
 - Serves a **REST API** and a **WebSocket** (live pump state and level) from the board itself.
 - Stores its settings and the pump state in flash, so cooldown survives a reboot.
 - Watches the network: it pings the router regularly, reconnects WiFi when needed and restarts the board as a
@@ -42,7 +42,8 @@ and an ultrasonic distance sensor, switches a pump through a relay, and can be r
 
 ## How the pump is controlled
 
-The two **XKC_Y23** level sensors are the primary control. The distance sensor adds a night mode and an early stop.
+The pump acts **only on the two XKC_Y23 level sensors** (plus its own safety limits below). The distance sensor only
+reports the level, in the log and through the API; it never starts or stops the pump.
 
 | Situation | What happens |
 |---|---|
@@ -53,15 +54,15 @@ The two **XKC_Y23** level sensors are the primary control. The distance sensor a
 | Start requested within `pumpMinRestartS` (10 s) of stopping | Refused (`PUMP_TOO_SOON`) |
 | High sensor wet while the low sensor is dry | **Fault `sensorInconsistent`**: pump off. Usually the two sensors are swapped or one is broken. Clears by itself when the readings make sense |
 | Clock not synced yet (first ~30 s after boot) | **Fault `noTime`**: pump off. Clears by itself when the time arrives |
-| Water level at or above `maxLevelCm` (from the distance sensor) | The pump is asked to stop (after its minimum run time) |
-| Night (`nightStartHour`..`nightEndHour`, default 22:00-08:00) and level above `criticalLevelCm` | The pump is **not started automatically**. A manual `pump.set` can still start it |
-| Level at or below `criticalLevelCm` at night | Normal operation (the pump may start) |
 
 Other rules worth knowing:
 
 - The relay is switched **off first thing at boot**. After a reboot the pump counts as stopped, so the restart delay
   and any cooldown still apply.
-- The distance sensor **cannot start the pump** by itself. Only the XKC_Y23 sensors, or a manual command, start it.
+- The distance sensor **cannot start or stop the pump**. Only the XKC_Y23 sensors, the safety limits, or a manual command do.
+  The night mode and the early stop at `maxLevelCm` that used the distance sensor are switched off; the settings
+  `criticalLevelCm`, `minLevelCm`, `maxLevelCm`, `nightStartHour` and `nightEndHour` are still accepted and reported but
+  **currently unused**. (`heightCm` and `filteredDistanceOffsetCm` still define the reported level.)
 - If the distance sensor fails, the level just becomes unknown (`null`). The pump keeps working from the XKC_Y23
   sensors.
 - **Blind zone:** the A02YYUW cannot measure closer than 3 cm (or farther than 450 cm): it just gives no echo. So the
@@ -172,7 +173,7 @@ pio device monitor            # 115200 baud, to watch the log
 - The pump stays in a `noTime` fault for about 30 seconds until the clock is synchronized. Then you see
   `Fault cleared`, and the pump may start if the low sensor is dry.
 - The board's IP address appears in the log (`STA IP: 192.168.x.y`). Everything below uses it.
-- Set your time zone with `utcOffsetMinutes` (default -180, UTC-3) so that night mode matches your day.
+- Set your time zone with `utcOffsetMinutes` (default -180, UTC-3) so that the clock and the logs match your day.
 
 ## Using it
 
@@ -244,9 +245,9 @@ Rule: `criticalLevelCm < minLevelCm < maxLevelCm <= heightCm`.
 | Name | Default | Range | Meaning |
 |---|---|---|---|
 | `heightCm` | 140 | 20..450 | Tank height |
-| `criticalLevelCm` | 20 | 0..450 | At or below this, pumping may start even at night |
-| `minLevelCm` | 50 | 0..450 | Level considered low |
-| `maxLevelCm` | 130 | 0..450 | At or above this, the pump is asked to stop |
+| `criticalLevelCm` | 20 | 0..450 | *Currently unused* (night mode is off) |
+| `minLevelCm` | 50 | 0..450 | *Currently unused* |
+| `maxLevelCm` | 130 | 0..450 | *Currently unused* (the distance sensor no longer stops the pump) |
 | `filteredDistanceOffsetCm` | 0 | 0..100 | Distance sensor offset |
 | `radarDelayS` | 1 | 1..3600 | Seconds between distance readings |
 | `medianWindow` | 5 | 1..15 | Readings used for the median |
@@ -255,8 +256,8 @@ Rule: `criticalLevelCm < minLevelCm < maxLevelCm <= heightCm`.
 | `pumpMinRestartS` | 10 | 0..600 | Minimum seconds OFF before the next start |
 | `pumpMaxTimeOnM` | 20 | 1..240 | Longest continuous run (minutes), then forced stop + cooldown |
 | `pumpCooldownTimeM` | 60 | 1..1440 | Lockout after a max-on-time stop (minutes) |
-| `nightStartHour` | 22 | 0..23 | Night starts (local hour) |
-| `nightEndHour` | 8 | 0..23 | Night ends (local hour) |
+| `nightStartHour` | 22 | 0..23 | *Currently unused* (night mode is off) |
+| `nightEndHour` | 8 | 0..23 | *Currently unused* (night mode is off) |
 | `utcOffsetMinutes` | -180 | -720..840 | Local time = UTC + this (minutes, no daylight saving) |
 | `watchdogDelayS` | 60 | 10..3600 | Seconds between network checks |
 | `maxReconnects` | 10 | 1..100 | Failed reconnect rounds before the board restarts |
@@ -293,7 +294,6 @@ reduce the noise.
 | ... answers `PUMP_TOO_SOON` | Stop/start requested too soon after the last change; wait `pumpMinRunS` / `pumpMinRestartS` seconds |
 | Level shows `null` | Not enough valid distance readings yet (needs `medianWindow` readings), or the sensor is not wired / out of range (3-450 cm), or the sensor goes silent after an ordinary reading. When the water rises into the blind zone (closer than 3 cm), the level should read `heightCm - 3` instead (see the blind zone note above); the log then says `No echo right after a reading near the minimum range` |
 | `weather` values are `null` | The DHT gave no valid reading yet (it needs about 2 s after power-up) or three readings in a row failed. Check the data wire and pull-up on GPIO 21; the log shows `Weather read invalid` |
-| Pump starts at night although night mode is on | Night mode only blocks **automatic** starts above `criticalLevelCm`, and uses your `utcOffsetMinutes`. Check the offset |
 | Can't reach the board | Look for the IP in the log. Same network? `ping <ip>`. In PowerShell use `Invoke-RestMethod`, not `curl` |
 | `Network check failed: the WiFi link is down` | WiFi dropped. The board reconnects by itself and restarts after `maxReconnects` failed rounds |
 | `Command failed: the settings could not be saved` | Flash storage problem; the change was rolled back |

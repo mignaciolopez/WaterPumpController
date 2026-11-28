@@ -210,7 +210,7 @@ namespace
         EXPECT_EQ(count(), 2);
     }
 
-    TEST_F(ControllerTest, WaterInTheBlindZoneCountsAsFullForTheLevelRules)
+    TEST_F(ControllerTest, WaterInTheBlindZoneReadsAsFullAndTheHighSensorStopsThePump)
     {
         controller.Execute(SetSetting("medianWindow", 1, 1));
         low.wet = false;
@@ -859,13 +859,67 @@ namespace
         EXPECT_EQ(rebooted.GetSettings().minLevelCm, 60);
     }
 
-    TEST_F(ControllerTest, NightModeVetoesFloatSwitchStartAtNight)
+    // ---- the pump acts on the XKC_Y23 sensors only; the distance sensor just reports the level
+
+    TEST_F(ControllerTest, TheRadarDoesNotStopThePumpEarly)
     {
-        clock.localHour = 23;
-        Feed(90); // level 50, critical is 20
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        low.wet = false;
+        controller.Update();                     // the low sensor is dry: the pump starts
+        ASSERT_TRUE(relay.on);
+
+        controller.OnDistance({true, 5.0f});     // the radar says full (level 135, max is 130)
+        for (int i = 0; i < 6; ++i)              // a minute: far past the minimum run time
+        {
+            clock.Advance(10);
+            controller.Update();
+            EXPECT_TRUE(relay.on) << "stopped after " << (i + 1) * 10 << " s";
+        }
+    }
+
+    TEST_F(ControllerTest, ThePumpStopsOnlyWhenTheHighSensorSeesWater)
+    {
+        low.wet = false;
+        controller.Update();
+        ASSERT_TRUE(relay.on);
+        clock.Advance(30);
+
+        low.wet = true;
+        high.wet = true;                          // the tank is full per the XKC_Y23
         controller.Update();
 
+        EXPECT_FALSE(relay.on);
+    }
+
+    TEST_F(ControllerTest, TheRadarDoesNotKeepThePumpFromStarting)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        controller.OnDistance({true, 5.0f});      // radar: full
+        low.wet = false;                          // XKC low: needs water
+
+        controller.Update();
+
+        EXPECT_TRUE(relay.on);                    // the XKC_Y23 decides
+    }
+
+    TEST_F(ControllerTest, ThereIsNoNightModeAnyMore)
+    {
+        clock.localHour = 23;
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        controller.OnDistance({true, 90.0f});     // level 50: above the critical level of 20
         low.wet = false;
+
+        controller.Update();
+
+        EXPECT_TRUE(relay.on);
+    }
+
+    TEST_F(ControllerTest, ALowRadarLevelDoesNotStartThePumpWhileTheLowSensorSeesWater)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        controller.OnDistance({true, 130.0f});    // radar: nearly empty (level 10)
+        low.wet = true;
+
         controller.Update();
 
         EXPECT_FALSE(relay.on);

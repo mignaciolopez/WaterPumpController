@@ -50,9 +50,9 @@ namespace CE::App
         _pump.SetConfig(PumpConfigFrom(_settings));
         _pump.Begin();
 
-        // Rules are stored by pointer; both outlive the tank. The list has room, so this cannot fail.
-        (void)_tank.AddRule(_levelRule);
-        (void)_tank.AddRule(_nightRule);
+        // No rules are registered on purpose: the pump acts only on the XKC_Y23 sensors (start when the low one sees no
+        // water, stop when the high one sees water) plus its own safety limits. The distance sensor only reports the
+        // level. LevelRule and NightRule still exist in core/rules; register them on the tank to use the radar again.
     }
 
     void Controller::OnDistance(const DistanceSample& reading)

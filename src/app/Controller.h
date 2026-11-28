@@ -130,8 +130,6 @@ namespace CE::App
 
         Core::PumpController _pump;
         Core::Tank _tank;
-        Core::LevelRule _levelRule;
-        Core::NightRule _nightRule;
         Core::CommandHandler _handler;
 
         Core::SensorRange _sensorRange;

@@ -176,6 +176,18 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - To check on the board: wire the DHT data pin to GPIO 21, upload, and look for `[DHTDevice] 23.4 C, 61 % humidity ...`
   every 30 s, the `weather` block in `GET /api/v1/state` and `tank.weather` events on the WebSocket.
 
+### The pump acts only on the XKC_Y23 sensors (done; unit tested)
+- Decision (project owner), after the board showed the pump switching on and off every 10 s at full level: the distance
+  sensor must not influence the pump. The previous change (veto starts when the radar says full + a "Sensors disagree"
+  log) was removed (commit reset) in favour of this simpler rule.
+- `Controller::Begin` registers no rules any more: the pump starts when the low XKC_Y23 sees no water and stops when the
+  high one sees water, with its safety limits (minimum run/rest, maximum on-time + cooldown, faults). The radar still
+  measures and reports the level (log, REST `state`, WebSocket `tank.level`).
+- `LevelRule` and `NightRule` stay in `core/rules` (unit tested through `Tank`) but are not registered, so night mode and
+  the early stop at `maxLevelCm` are off. The settings `criticalLevelCm`, `minLevelCm`, `maxLevelCm`, `nightStartHour` and
+  `nightEndHour` are still accepted, saved and reported, but currently unused; documented as such. Removing them would be a
+  breaking API change, so that is left for a later decision.
+
 ### Sensor logging (done)
 - `XKC_Y23` (tag `XKC_Y23`, Info): logs the initial state of the Low and High sensors, then every change
   ("Low: water detected" / "Low: no water", same for High)

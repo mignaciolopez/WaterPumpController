@@ -101,9 +101,9 @@ Same data object as the `settings.get` response.
 | Name | Default | Range | Meaning |
 |---|---|---|---|
 | `heightCm` | 140 | 20..450 | Tank height |
-| `criticalLevelCm` | 20 | 0..450 | At or below this, pumping may start even at night |
-| `minLevelCm` | 50 | 0..450 | Level considered low |
-| `maxLevelCm` | 130 | 0..450 | At or above this, the pump is asked to stop |
+| `criticalLevelCm` | 20 | 0..450 | Currently unused (night mode is off) |
+| `minLevelCm` | 50 | 0..450 | Currently unused |
+| `maxLevelCm` | 130 | 0..450 | Currently unused (the distance sensor no longer stops the pump) |
 | `filteredDistanceOffsetCm` | 0 | 0..100 | Distance sensor offset |
 | `radarDelayS` | 1 | 1..3600 | Seconds between distance readings |
 | `medianWindow` | 5 | 1..15 | Readings used for the median |
@@ -112,8 +112,8 @@ Same data object as the `settings.get` response.
 | `pumpMinRestartS` | 10 | 0..600 | Minimum seconds OFF before the next start |
 | `pumpMaxTimeOnM` | 20 | 1..240 | Longest continuous run (minutes), then forced stop + cooldown |
 | `pumpCooldownTimeM` | 60 | 1..1440 | Lockout after a max-on-time stop (minutes) |
-| `nightStartHour` | 22 | 0..23 | Night starts (local hour) |
-| `nightEndHour` | 8 | 0..23 | Night ends (local hour) |
+| `nightStartHour` | 22 | 0..23 | Currently unused (night mode is off) |
+| `nightEndHour` | 8 | 0..23 | Currently unused (night mode is off) |
 | `utcOffsetMinutes` | -180 | -720..840 | Local time = UTC + this offset (minutes, no daylight saving). -180 = UTC-3 |
 | `watchdogDelayS` | 60 | 10..3600 | Seconds between network checks (ping to the router) |
 | `maxReconnects` | 10 | 1..100 | Failed reconnect rounds before the device restarts |
