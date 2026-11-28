@@ -38,6 +38,19 @@ namespace
         EXPECT_EQ(restarter.restartCount, 0);
     }
 
+    TEST_F(NetworkWatchdogTest, TheLogSaysWhetherTheLinkOrThePingFailed)
+    {
+        network.pingOk = false;
+        watchdog.Tick();
+        network.pingOk = true;
+        network.connected = false;
+        watchdog.Tick();
+
+        ASSERT_GE(log.messages.size(), 2u);
+        EXPECT_EQ(log.messages[0], "Network check failed: the gateway did not answer a ping");
+        EXPECT_EQ(log.messages[1], "Network check failed: the WiFi link is down");
+    }
+
     TEST_F(NetworkWatchdogTest, LinkDownCountsAsFailure)
     {
         network.connected = false;

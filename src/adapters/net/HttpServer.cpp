@@ -4,6 +4,8 @@
 
 #include <cstdio>
 #include <cstring>
+#include <strings.h>
+#include <unistd.h>
 
 #include "adapters/codec/RestCodec.h"
 
@@ -83,7 +85,7 @@ namespace CE::Adapters
         else if (address.ss_family == AF_INET6)
         {
             inet_ntop(AF_INET6, &reinterpret_cast<sockaddr_in6*>(&address)->sin6_addr, out, size);
-            if (std::strncmp(out, "::ffff:", 7) == 0) std::memmove(out, out + 7, std::strlen(out + 7) + 1);  // IPv4 client
+            if (strncasecmp(out, "::ffff:", 7) == 0) std::memmove(out, out + 7, std::strlen(out + 7) + 1);  // IPv4 client
         }
     }
 
@@ -120,6 +122,13 @@ namespace CE::Adapters
     {
         HttpServer* self = Self(handle);
         if (self != nullptr && self->_onClose) self->_onClose(socketFd);
+
+        // IMPORTANT: when a close callback is set, this version of esp_http_server does NOT close the socket
+        // itself (the header comment says it does; the compiled library only calls close() when there is no
+        // callback). Without this line every closed connection leaks its socket and, after a dozen
+        // connections, the board cannot accept or ping any more. The descriptor may already be invalid
+        // (closed by the network stack); close() then just fails harmlessly.
+        close(socketFd);
     }
 
     esp_err_t HttpServer::OnNotFound(httpd_req_t* req, httpd_err_code_t)

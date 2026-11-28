@@ -12,6 +12,7 @@ namespace CE::Adapters
     void WifiNetwork::Begin()
     {
         WiFi.mode(WIFI_STA);
+        WiFi.setSleep(false);  // no radio power saving: it can make the board unreachable under bursts of traffic
         WiFi.setAutoReconnect(true);
         WiFi.begin(_ssid, _password);
     }

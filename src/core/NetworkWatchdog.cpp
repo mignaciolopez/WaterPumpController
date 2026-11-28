@@ -17,7 +17,8 @@ namespace CE::Core
 
     bool NetworkWatchdog::Tick()
     {
-        if (_network.IsConnected() && _network.PingGateway())
+        const bool linkUp = _network.IsConnected();
+        if (linkUp && _network.PingGateway())
         {
             if (_failures > 0 || _reconnects > 0) _log.Log(LogLevel::Info, kTag, "Network recovered");
             _failures = 0;
@@ -26,7 +27,8 @@ namespace CE::Core
         }
 
         ++_failures;
-        _log.Log(LogLevel::Warn, kTag, "Network check failed");
+        _log.Log(LogLevel::Warn, kTag, linkUp ? "Network check failed: the gateway did not answer a ping"
+                                              : "Network check failed: the WiFi link is down");
 
         if (_failures >= _config.failuresBeforeReconnect)
         {

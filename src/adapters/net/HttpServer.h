@@ -32,6 +32,8 @@ namespace CE::Adapters
         httpd_handle_t Handle() const { return _handle; }
 
         /// Called in the server task whenever a connection closes (the file descriptor may be invalid).
+        /// HttpServer closes the socket right after the handler returns (esp_http_server does not when a close
+        /// callback is set), so the handler must not.
         void SetCloseHandler(std::function<void(int)> handler) { _onClose = std::move(handler); }
 
         /// Logs "<METHOD> <uri> from <ip>" (tag REST), plus the request body for writes.

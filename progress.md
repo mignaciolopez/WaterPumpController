@@ -67,6 +67,21 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - Compile-checked only: the REST endpoints have NOT been exercised on the board yet (see the REST checks below)
 - Profile field `webSocketPort` renamed to `httpPort`
 
+### Network stops answering after ~13 connections: leaked sockets (fixed, to confirm on the board)
+- Symptom (first run on the built-in HTTP server): `ws-stress.ps1 -Cycles 100 -Abrupt` stopped after 13 good cycles,
+  `rest-stress.ps1` also failed after a while; the board did not reboot and printed no crash. The watchdog logged
+  `Network check failed` (its own ping could not get a socket either).
+- Evidence in the log: the WebSocket client numbers (socket numbers) only went UP: #51, #52 ... #63. Closed sockets are
+  reused at once, so they were never closed; the board ran out of sockets at the end of the range.
+- Cause: my `close_fn` callback (used to log disconnects). In the compiled `esp_http_server` of this core,
+  `httpd_sess_delete` calls `close(fd)` only when NO close callback is set (checked by disassembling
+  `libesp_http_server.a`), although the header comment says the server still closes the socket. So every connection leaked.
+- Fix: `HttpServer::OnClose` calls `close(fd)` itself after the handler. Also the client address is printed without the
+  `::FFFF:` prefix (the check was case sensitive).
+- Heap was healthy in that run (about 200 KB free, no corruption): the earlier CORRUPT HEAP crashes are gone.
+- Added: the watchdog log says whether the WiFi link is down or the ping failed, and `WiFi.setSleep(false)` (a precaution,
+  not proven needed; it can be reverted if you prefer the radio power saving).
+
 ### Heap corruption on connection close: moved to the built-in HTTP server (done, to confirm on the board)
 - Symptom: `CORRUPT HEAP: Bad head ... multi_heap_free`, then reboot, within ~15 WebSocket connect/disconnect cycles.
   The decoded backtrace always ended in lwIP `tcp_close` called by AsyncTCP (`_tcp_close_api`). The firmware crashed with
