@@ -45,8 +45,29 @@ namespace CE::App
         (void)_tank.AddRule(_nightRule);
     }
 
-    void Controller::OnDistance(const DistanceSample& sample)
+    void Controller::OnDistance(const DistanceSample& reading)
     {
+        DistanceSample sample = reading;
+
+        // No echo at all. Water inside the sensor's blind zone gives exactly this, but so does a sensor that is
+        // unplugged or broken. The high XKC_Y23 sensor decides: if it sees water the tank is full, so the water
+        // is in the blind zone. Otherwise it is a real failure (the level becomes unknown).
+        if (!sample.valid && sample.silent && sample.blindZoneCm > 0.0f && _xkcHigh.IsDetectingWater())
+        {
+            sample.valid = true;
+            sample.cm = sample.blindZoneCm;
+            if (!_blindZoneAssumed)
+            {
+                _blindZoneAssumed = true;
+                _log.Log(LogLevel::Info, "A02YYUW",
+                         "No echo while the high sensor sees water: assuming the water is inside the sensor's blind zone");
+            }
+        }
+        else if (sample.valid)
+        {
+            _blindZoneAssumed = false;
+        }
+
         if (!sample.valid)
         {
             _tank.OnDistanceFailure();

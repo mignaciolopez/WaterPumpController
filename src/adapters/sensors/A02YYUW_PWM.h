@@ -17,7 +17,8 @@ namespace CE::Adapters
 
         [[nodiscard]] bool Begin();
 
-        bool Read(float& distanceCm) override;
+        Core::DistanceReading Read() override;
+        float MinDistanceCm() const override { return kMinDistanceCm; }
 
         static constexpr float kMinDistanceCm = 3.0f;
         static constexpr float kMaxDistanceCm = 450.0f;

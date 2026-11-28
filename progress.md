@@ -130,6 +130,16 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
   100 characters). Pushed events are not logged (the level event fires about once a second).
 - `PUT /api/v1/settings` was confirmed on the board after the batched-store fix (both `PUT`s answered `ok`).
 
+### Water inside the sensor's blind zone (done; unit tested, not yet tested on the board)
+- Problem: closer than 3 cm the A02YYUW gives no usable echo, so the driver failed exactly when the tank was fullest and
+  the level became unknown.
+- Drivers now say why a reading failed (`IDistanceSensor::Read()` returns `Ok`, `TooClose`, `NoEcho` or `OutOfRange`, and
+  `MinDistanceCm()`): an echo shorter than the minimum is clamped to the minimum (valid); no echo is "silent".
+- `Controller::OnDistance`: a silent reading while the high XKC_Y23 sensor sees water is taken as the minimum distance
+  (water in the blind zone); with the high sensor dry it stays a failure, so a dead sensor is never read as "full"
+  (which would make the early-stop rule cycle the pump). Logged once per episode.
+- Not done: shortening `pulseIn`'s 1 s default timeout (each silent reading blocks the sensor task for 1 s).
+
 ### Sensor logging (done)
 - `XKC_Y23` (tag `XKC_Y23`, Info): logs the initial state of the Low and High sensors, then every change
   ("Low: water detected" / "Low: no water", same for High)

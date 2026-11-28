@@ -8,6 +8,7 @@
 #include "core/Settings.h"
 #include "core/Tank.h"
 #include "core/ports/IClock.h"
+#include "core/ports/IDistanceSensor.h"
 #include "core/ports/IFloatSwitch.h"
 #include "core/ports/ILog.h"
 #include "core/ports/IMessageSink.h"
@@ -22,7 +23,33 @@ namespace CE::App
     {
         bool  valid = false;
         float cm = 0.0f;
+
+        /// No echo at all (not a failed or out-of-range reading). With `blindZoneCm` set, the Controller may
+        /// read it as "the water is closer than the sensor can measure".
+        bool  silent = false;
+        float blindZoneCm = 0.0f;  // the sensor's minimum range
     };
+
+    /// Turns what a sensor reported into a sample for the Controller.
+    inline DistanceSample ToSample(const Core::DistanceReading& reading, const float minDistanceCm)
+    {
+        DistanceSample sample;
+        switch (reading.status)
+        {
+            case Core::DistanceStatus::Ok:
+            case Core::DistanceStatus::TooClose:   // already clamped to the minimum range
+                sample.valid = true;
+                sample.cm = reading.cm;
+                break;
+            case Core::DistanceStatus::NoEcho:
+                sample.silent = true;
+                sample.blindZoneCm = minDistanceCm;
+                break;
+            case Core::DistanceStatus::OutOfRange:
+                break;  // a failed reading
+        }
+        return sample;
+    }
 
     /// The application logic of one tank with one pump: wires the core pieces together and turns
     /// commands and state changes into protocol messages. Free of hardware and OS calls.
@@ -95,6 +122,8 @@ namespace CE::App
         size_t _medianCount = 0;     // how many are stored (up to kMedianHistory)
         bool _medianLogged = false;
         int64_t _lastMedianLogAt = 0;
+
+        bool _blindZoneAssumed = false;  // logged once per episode
 
         bool _xkcKnown = false;
         bool _lastXkcLow = false;

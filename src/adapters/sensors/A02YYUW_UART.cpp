@@ -14,7 +14,7 @@ namespace CE::Adapters
         return static_cast<bool>(_serial);
     }
 
-    bool A02YYUW_UART::Read(float& distanceCm)
+    Core::DistanceReading A02YYUW_UART::Read()
     {
         bool gotFrame = false;
         uint16_t latestMm = 0;
@@ -29,12 +29,9 @@ namespace CE::Adapters
             }
         }
 
-        if (!gotFrame) return false;
+        if (!gotFrame) return {Core::DistanceStatus::NoEcho, 0.0f};
 
         const float cm = static_cast<float>(latestMm) / 10.0f;  // the sensor reports millimetres
-        if (cm < kMinDistanceCm || cm > kMaxDistanceCm) return false;
-
-        distanceCm = cm;
-        return true;
+        return Core::ClassifyDistance(cm, kMinDistanceCm, kMaxDistanceCm);
     }
 }

@@ -19,8 +19,9 @@ namespace CE::Adapters
         /// Opens the serial port. Returns false if it cannot be opened.
         [[nodiscard]] bool Begin();
 
-        /// Returns false when no complete valid frame arrived since the last call.
-        bool Read(float& distanceCm) override;
+        /// NoEcho when no complete valid frame arrived since the last call.
+        Core::DistanceReading Read() override;
+        float MinDistanceCm() const override { return kMinDistanceCm; }
 
         static constexpr float kMinDistanceCm = 3.0f;
         static constexpr float kMaxDistanceCm = 450.0f;

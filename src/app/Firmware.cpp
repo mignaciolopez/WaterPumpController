@@ -203,9 +203,7 @@ namespace CE::App
     {
         for (;;)
         {
-            DistanceSample sample;
-            sample.valid = _distanceSensor.Read(sample.cm);
-            if (!sample.valid) sample.cm = 0.0f;
+            const DistanceSample sample = ToSample(_distanceSensor.Read(), _distanceSensor.MinDistanceCm());
 
             // A full queue means the control task is behind: dropping the sample is fine.
             (void)xQueueSend(_samples, &sample, 0);

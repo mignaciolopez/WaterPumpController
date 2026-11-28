@@ -78,6 +78,101 @@ namespace
         EXPECT_TRUE(Parse(sink.broadcasts[1])["data"]["cm"].isNull());
     }
 
+    // ---- blind zone (water closer than the sensor's minimum range)
+
+    static App::DistanceSample Silent() { App::DistanceSample s; s.silent = true; s.blindZoneCm = 3.0f; return s; }
+
+    TEST_F(ControllerTest, NoEchoWhileTheHighSensorSeesWaterMeansTheWaterIsInTheBlindZone)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        high.wet = true;
+        low.wet = true;
+
+        controller.OnDistance(Silent());
+        controller.Update();
+
+        EXPECT_TRUE(controller.HasLevel());
+        EXPECT_NEAR(controller.LevelCm(), 137.0f, 0.01f);   // height 140 - minimum distance 3
+    }
+
+    TEST_F(ControllerTest, NoEchoWhileTheHighSensorIsDryIsARealFailure)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        controller.OnDistance({true, 90.0f});
+        ASSERT_TRUE(controller.HasLevel());
+        high.wet = false;
+
+        controller.OnDistance(Silent());
+
+        EXPECT_FALSE(controller.HasLevel());   // unknown, not "full"
+    }
+
+    TEST_F(ControllerTest, NoEchoWithoutAKnownBlindZoneIsAFailure)
+    {
+        high.wet = true;
+        App::DistanceSample s;
+        s.silent = true;       // blindZoneCm stays 0: the sensor did not say where its blind zone ends
+
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        controller.OnDistance({true, 90.0f});
+        controller.OnDistance(s);
+
+        EXPECT_FALSE(controller.HasLevel());
+    }
+
+    TEST_F(ControllerTest, AnOutOfRangeReadingIsAFailureEvenWhenTheHighSensorIsWet)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        controller.OnDistance({true, 90.0f});
+        high.wet = true;
+        low.wet = true;
+
+        controller.OnDistance(App::DistanceSample{});   // not valid, not silent
+
+        EXPECT_FALSE(controller.HasLevel());
+    }
+
+    TEST_F(ControllerTest, TheBlindZoneAssumptionIsLoggedOncePerEpisode)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        high.wet = true;
+        low.wet = true;
+        log.entries.clear();
+
+        for (int i = 0; i < 5; ++i) controller.OnDistance(Silent());
+        auto count = [&]() {
+            int n = 0;
+            for (const auto& e : log.entries)
+                if (e.message.rfind("No echo while the high sensor sees water", 0) == 0) ++n;
+            return n;
+        };
+        EXPECT_EQ(count(), 1);
+
+        controller.OnDistance({true, 50.0f});   // a real reading ends the episode
+        controller.OnDistance(Silent());
+        EXPECT_EQ(count(), 2);
+    }
+
+    TEST_F(ControllerTest, WaterInTheBlindZoneCountsAsFullForTheLevelRules)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        low.wet = false;
+        controller.Update();                    // the pump starts
+        clock.Advance(20);
+        low.wet = true;
+        high.wet = false;
+        controller.OnDistance({true, 90.0f});
+        controller.Update();
+        ASSERT_TRUE(relay.on);
+
+        high.wet = true;                        // the tank filled: the high sensor is wet
+        controller.OnDistance(Silent());        // and the radar went silent
+        controller.Update();
+
+        EXPECT_FALSE(relay.on);                 // stopped (high sensor), level reads full
+        EXPECT_GE(controller.LevelCm(), 130.0f);
+    }
+
     // ---- Execute (REST) and Revision
 
     TEST_F(ControllerTest, ExecuteReturnsTheOutcomeAndSendsNoResponse)

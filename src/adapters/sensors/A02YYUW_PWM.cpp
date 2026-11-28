@@ -14,7 +14,7 @@ namespace CE::Adapters
         return true;
     }
 
-    bool A02YYUW_PWM::Read(float& distanceCm)
+    Core::DistanceReading A02YYUW_PWM::Read()
     {
         // Do not add code between the trigger pulse and pulseIn: it would shorten the measured echo.
         digitalWrite(_txPin, LOW);
@@ -24,12 +24,11 @@ namespace CE::Adapters
         digitalWrite(_txPin, LOW);
         const unsigned long durationUs = pulseIn(_rxPin, HIGH);
 
-        if (durationUs == 0) return false;
+        // No echo: the water may be inside the blind zone (closer than kMinDistanceCm), or the sensor is not
+        // answering. The caller decides, see Controller::OnDistance.
+        if (durationUs == 0) return {Core::DistanceStatus::NoEcho, 0.0f};
 
         const float cm = static_cast<float>(durationUs) * kSpeedCmPerUs / 2.0f;
-        if (cm < kMinDistanceCm || cm > kMaxDistanceCm) return false;
-
-        distanceCm = cm;
-        return true;
+        return Core::ClassifyDistance(cm, kMinDistanceCm, kMaxDistanceCm);
     }
 }
