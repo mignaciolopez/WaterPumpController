@@ -24,11 +24,11 @@ namespace CE::Adapters
         digitalWrite(_txPin, LOW);
         const unsigned long durationUs = pulseIn(_rxPin, HIGH);
 
-        // No echo: the water may be inside the blind zone (closer than kMinDistanceCm), or the sensor is not
-        // answering. The caller decides, see Controller::OnDistance.
-        if (durationUs == 0) return {Core::DistanceStatus::NoEcho, 0.0f};
+        // No echo happens when the water is closer than kMinDistanceCm (or farther than kMaxDistanceCm), but also
+        // when the sensor is not answering. The interpreter tells them apart from the readings before.
+        if (durationUs == 0) return _interpreter.Interpret(false, 0.0f);
 
         const float cm = static_cast<float>(durationUs) * kSpeedCmPerUs / 2.0f;
-        return Core::ClassifyDistance(cm, kMinDistanceCm, kMaxDistanceCm);
+        return _interpreter.Interpret(true, cm);
     }
 }

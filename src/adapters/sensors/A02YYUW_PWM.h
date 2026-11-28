@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 
+#include "core/DistanceInterpreter.h"
 #include "core/ports/IDistanceSensor.h"
 
 namespace CE::Adapters
@@ -29,5 +30,6 @@ namespace CE::Adapters
 
         byte _rxPin;
         byte _txPin;
+        Core::DistanceInterpreter _interpreter{kMinDistanceCm, kMaxDistanceCm};
     };
 }

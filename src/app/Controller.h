@@ -24,10 +24,14 @@ namespace CE::App
         bool  valid = false;
         float cm = 0.0f;
 
-        /// No echo at all (not a failed or out-of-range reading). With `blindZoneCm` set, the Controller may
-        /// read it as "the water is closer than the sensor can measure".
+        /// The sensor said nothing and nothing explains it. With `blindZoneCm` set, the Controller may read it
+        /// as "the water is closer than the sensor can measure" when the high XKC_Y23 sensor sees water.
         bool  silent = false;
         float blindZoneCm = 0.0f;  // the sensor's minimum range
+
+        /// A valid sample that was inferred from the last readings before the sensor went silent (water that
+        /// disappeared into the blind zone). Only believed while the low XKC_Y23 sensor sees water.
+        bool  inferred = false;
     };
 
     /// Turns what a sensor reported into a sample for the Controller.
@@ -37,16 +41,17 @@ namespace CE::App
         switch (reading.status)
         {
             case Core::DistanceStatus::Ok:
-            case Core::DistanceStatus::TooClose:   // already clamped to the minimum range
+            case Core::DistanceStatus::TooClose:   // a real reading near the sensor's minimum, or inferred from one
                 sample.valid = true;
                 sample.cm = reading.cm;
+                sample.inferred = reading.inferred;
                 break;
             case Core::DistanceStatus::NoEcho:
                 sample.silent = true;
                 sample.blindZoneCm = minDistanceCm;
                 break;
             case Core::DistanceStatus::OutOfRange:
-                break;  // a failed reading
+                break;  // beyond the far limit: not a usable reading for a tank
         }
         return sample;
     }

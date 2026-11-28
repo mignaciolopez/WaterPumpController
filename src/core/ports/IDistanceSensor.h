@@ -7,25 +7,20 @@ namespace CE::Core
     enum class DistanceStatus : uint8_t
     {
         Ok,          // a normal measurement: `cm` is the distance
-        TooClose,    // an echo arrived but it is shorter than the sensor's minimum range: `cm` is that minimum
-        NoEcho,      // nothing came back (water inside the blind zone, nothing in range, or a dead sensor)
-        OutOfRange   // an echo arrived but beyond the sensor's maximum range
+        TooClose,    // at the near limit of the sensor's range (see DistanceInterpreter): `cm` is the distance, >= minimum
+        NoEcho,      // nothing came back and nothing explains it: a failure (or a dead sensor)
+        OutOfRange   // at the far limit of the sensor's range
     };
 
     struct DistanceReading
     {
         DistanceStatus status = DistanceStatus::NoEcho;
         float cm = 0.0f;
-    };
 
-    /// Sorts a measured distance into Ok / TooClose / OutOfRange for a sensor with the given range.
-    /// A distance below the minimum is clamped to the minimum: the object is at least that close.
-    inline DistanceReading ClassifyDistance(const float cm, const float minCm, const float maxCm)
-    {
-        if (cm < minCm) return {DistanceStatus::TooClose, minCm};
-        if (cm > maxCm) return {DistanceStatus::OutOfRange, 0.0f};
-        return {DistanceStatus::Ok, cm};
-    }
+        /// The sensor said nothing; `status` and `cm` were inferred from the last reading it did give
+        /// (water that disappears into the blind zone, for example).
+        bool inferred = false;
+    };
 
     /// A distance sensor (ultrasonic...). Measuring may block for a short time.
     class IDistanceSensor

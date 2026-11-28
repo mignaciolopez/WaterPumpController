@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 #include "adapters/sensors/A02YYUW_Frame.h"
+#include "core/DistanceInterpreter.h"
 #include "core/ports/IDistanceSensor.h"
 
 namespace CE::Adapters
@@ -33,5 +34,6 @@ namespace CE::Adapters
         byte _txPin;
         HardwareSerial& _serial;
         A02YYUW_FrameParser _parser;
+        Core::DistanceInterpreter _interpreter{kMinDistanceCm, kMaxDistanceCm};
     };
 }

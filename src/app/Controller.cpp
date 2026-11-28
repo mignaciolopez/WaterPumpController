@@ -63,6 +63,22 @@ namespace CE::App
                          "No echo while the high sensor sees water: assuming the water is inside the sensor's blind zone");
             }
         }
+        else if (sample.valid && sample.inferred)
+        {
+            // The sensor went silent right after reading very close, so the water is taken to be in the blind zone.
+            // That is only possible if the water is at least up to the low sensor: if that one is dry, the
+            // sensor has simply stopped working and "full" would be wrong (the pump would be stopped over and over).
+            if (!_xkcLow.IsDetectingWater())
+            {
+                sample.valid = false;
+            }
+            else if (!_blindZoneAssumed)
+            {
+                _blindZoneAssumed = true;
+                _log.Log(LogLevel::Info, "A02YYUW",
+                         "No echo right after a reading near the minimum range: assuming the water is inside the sensor's blind zone");
+            }
+        }
         else if (sample.valid)
         {
             _blindZoneAssumed = false;

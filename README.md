@@ -64,10 +64,14 @@ Other rules worth knowing:
 - The distance sensor **cannot start the pump** by itself. Only the XKC_Y23 sensors, or a manual command, start it.
 - If the distance sensor fails, the level just becomes unknown (`null`). The pump keeps working from the XKC_Y23
   sensors.
-- **Blind zone:** the A02YYUW cannot measure closer than 3 cm. An echo that is too short is reported as 3 cm. When
-  **no echo comes back at all** while the **high XKC_Y23 sensor sees water**, the water is taken to be inside the
-  blind zone and the distance is also reported as 3 cm (a level of `heightCm - 3`, i.e. full). With the high sensor
-  dry, no echo is a real failure and the level is `null`, so an unplugged sensor is never mistaken for a full tank.
+- **Blind zone:** the A02YYUW cannot measure closer than 3 cm (or farther than 450 cm): it just gives no echo. So the
+  firmware watches the readings **before** that happens. A reading within 2 cm of the limit (5 cm or less) is kept as
+  a normal measurement, and if the sensor then goes silent, the water is taken to be inside the blind zone: the
+  distance is reported as 3 cm (a level of `heightCm - 3`, full) and stays so while the silence lasts. This is only
+  believed while the **low** XKC_Y23 sensor sees water; if that one is dry, silence is a failure and the level is
+  `null`, so a dead sensor is never mistaken for a full tank. If the board restarts while the water is already in
+  the blind zone there is no earlier reading, so silence while the **high** XKC_Y23 sensor sees water is also read
+  as "blind zone". Silence after an ordinary reading (say 90 cm) is always a failure.
 
 ## Hardware
 
@@ -279,7 +283,7 @@ reduce the noise.
 | `POST /api/v1/pump` answers `HIGH_LEVEL` | The high sensor reports water: the tank is full |
 | ... answers `PUMP_COOLDOWN` | The pump ran too long; wait for the cooldown (`pumpCooldownTimeM`) |
 | ... answers `PUMP_TOO_SOON` | Stop/start requested too soon after the last change; wait `pumpMinRunS` / `pumpMinRestartS` seconds |
-| Level shows `null` | Not enough valid distance readings yet (needs `medianWindow` readings), or the sensor is not wired / out of range (3-450 cm), or it gets no echo while the high sensor is dry. When the tank is full and the water is closer than 3 cm, the level should read `heightCm - 3` instead (see the blind zone note above); the log then says `No echo while the high sensor sees water` |
+| Level shows `null` | Not enough valid distance readings yet (needs `medianWindow` readings), or the sensor is not wired / out of range (3-450 cm), or the sensor goes silent after an ordinary reading. When the water rises into the blind zone (closer than 3 cm), the level should read `heightCm - 3` instead (see the blind zone note above); the log then says `No echo right after a reading near the minimum range` |
 | Pump starts at night although night mode is on | Night mode only blocks **automatic** starts above `criticalLevelCm`, and uses your `utcOffsetMinutes`. Check the offset |
 | Can't reach the board | Look for the IP in the log. Same network? `ping <ip>`. In PowerShell use `Invoke-RestMethod`, not `curl` |
 | `Network check failed: the WiFi link is down` | WiFi dropped. The board reconnects by itself and restarts after `maxReconnects` failed rounds |

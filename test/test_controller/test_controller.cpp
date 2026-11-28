@@ -132,6 +132,63 @@ namespace
         EXPECT_FALSE(controller.HasLevel());
     }
 
+    static App::DistanceSample Inferred()
+    {
+        App::DistanceSample s;
+        s.valid = true;
+        s.cm = 3.0f;          // the sensor's minimum range
+        s.inferred = true;    // it went silent right after reading very close
+        return s;
+    }
+
+    TEST_F(ControllerTest, AnInferredBlindZoneReadingIsBelievedWhileTheLowSensorSeesWater)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        low.wet = true;
+        high.wet = false;   // does not matter for this rule
+
+        controller.OnDistance(Inferred());
+
+        EXPECT_TRUE(controller.HasLevel());
+        EXPECT_NEAR(controller.LevelCm(), 137.0f, 0.01f);
+    }
+
+    TEST_F(ControllerTest, AnInferredReadingIsNotBelievedWhenTheLowSensorIsDry)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        controller.OnDistance({true, 90.0f});
+        ASSERT_TRUE(controller.HasLevel());
+        low.wet = false;     // the water cannot be at the top: the sensor has simply stopped answering
+
+        controller.OnDistance(Inferred());
+
+        EXPECT_FALSE(controller.HasLevel());
+    }
+
+    TEST_F(ControllerTest, AnInferredReadingIsLoggedOncePerEpisode)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        log.entries.clear();
+
+        for (int i = 0; i < 5; ++i) controller.OnDistance(Inferred());
+
+        int n = 0;
+        for (const auto& e : log.entries)
+            if (e.message.rfind("No echo right after a reading near the minimum range", 0) == 0) ++n;
+        EXPECT_EQ(n, 1);
+    }
+
+    TEST_F(ControllerTest, ARealReadingNearTheMinimumNeedsNoCrossCheck)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        low.wet = false;
+
+        controller.OnDistance({true, 4.2f});     // a real echo, not inferred
+
+        EXPECT_TRUE(controller.HasLevel());
+        EXPECT_NEAR(controller.LevelCm(), 135.8f, 0.01f);
+    }
+
     TEST_F(ControllerTest, TheBlindZoneAssumptionIsLoggedOncePerEpisode)
     {
         controller.Execute(SetSetting("medianWindow", 1, 1));

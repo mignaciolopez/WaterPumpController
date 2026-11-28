@@ -29,9 +29,9 @@ namespace CE::Adapters
             }
         }
 
-        if (!gotFrame) return {Core::DistanceStatus::NoEcho, 0.0f};
+        if (!gotFrame) return _interpreter.Interpret(false, 0.0f);
 
         const float cm = static_cast<float>(latestMm) / 10.0f;  // the sensor reports millimetres
-        return Core::ClassifyDistance(cm, kMinDistanceCm, kMaxDistanceCm);
+        return _interpreter.Interpret(true, cm);
     }
 }

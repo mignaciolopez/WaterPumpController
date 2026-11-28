@@ -131,13 +131,18 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - `PUT /api/v1/settings` was confirmed on the board after the batched-store fix (both `PUT`s answered `ok`).
 
 ### Water inside the sensor's blind zone (done; unit tested, not yet tested on the board)
-- Problem: closer than 3 cm the A02YYUW gives no usable echo, so the driver failed exactly when the tank was fullest and
-  the level became unknown.
-- Drivers now say why a reading failed (`IDistanceSensor::Read()` returns `Ok`, `TooClose`, `NoEcho` or `OutOfRange`, and
-  `MinDistanceCm()`): an echo shorter than the minimum is clamped to the minimum (valid); no echo is "silent".
-- `Controller::OnDistance`: a silent reading while the high XKC_Y23 sensor sees water is taken as the minimum distance
-  (water in the blind zone); with the high sensor dry it stays a failure, so a dead sensor is never read as "full"
-  (which would make the early-stop rule cycle the pump). Logged once per episode.
+- Problem: closer than 3 cm (or beyond 450 cm) the A02YYUW gives NO echo at all, so the driver failed exactly when the
+  tank was fullest and the level became unknown. "Too close" can never be observed directly.
+- Fix (after the project owner's explanation): watch the readings BEFORE the sensor goes silent. `core/DistanceInterpreter`
+  (shared by the PWM and UART drivers, margin `kDistanceEdgeMarginCm` = 2 cm): an echo <= minimum + margin is `TooClose`
+  (its real value is kept), >= maximum - margin is `OutOfRange`; silence right after a `TooClose` reading is
+  `TooClose` at the minimum (`inferred`) and stays so while the silence lasts; silence after a normal reading, or
+  with no history, is `NoEcho` (a failure).
+- Safety checks in `Controller::OnDistance`: an inferred blind-zone reading is only believed while the LOW XKC_Y23 sees
+  water (otherwise a dead sensor would read "full" and the early-stop rule would cycle the pump). With no history
+  (restart while the water is already in the blind zone) silence while the HIGH XKC_Y23 sees water is also read as the
+  blind zone. Each is logged once per episode.
+- `IDistanceSensor::Read()` returns a `DistanceReading` (status, cm, inferred) and `MinDistanceCm()`.
 - Not done: shortening `pulseIn`'s 1 s default timeout (each silent reading blocks the sensor task for 1 s).
 
 ### Sensor logging (done)
