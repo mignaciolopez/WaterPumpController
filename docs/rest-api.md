@@ -45,6 +45,20 @@ $ curl -X PUT http://<ip>/api/v1/settings -H "Content-Type: application/json" -d
 ```
 All values are applied together or not at all. Values must be integers.
 
+## Windows PowerShell
+In Windows PowerShell `curl` is an alias for `Invoke-WebRequest` and does not accept the curl options used
+above. Use `Invoke-RestMethod`:
+```powershell
+Invoke-RestMethod http://<ip>/api/v1/state
+Invoke-RestMethod -Method Post -Uri http://<ip>/api/v1/pump -ContentType 'application/json' -Body '{"on":true}'
+Invoke-RestMethod -Method Put -Uri http://<ip>/api/v1/settings -ContentType 'application/json' -Body '{"minLevelCm":60}'
+```
+PowerShell throws on 4xx/5xx answers. To see the status code and the error body:
+```powershell
+try { Invoke-RestMethod -Method Put -Uri http://<ip>/api/v1/settings -ContentType 'application/json' -Body '{"medianWindow":99}' }
+catch { $_.Exception.Response.StatusCode.value__; $_.ErrorDetails.Message }
+```
+
 ## Answers and errors
 
 Success is HTTP `200` with `{"ok":true}` (or the data for the `GET` calls). A refused request has an HTTP
