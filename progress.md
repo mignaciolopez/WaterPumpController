@@ -67,6 +67,17 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - Compile-checked only: the REST endpoints have NOT been exercised on the board yet (see the REST checks below)
 - Profile field `webSocketPort` renamed to `httpPort`
 
+### Boot crash after adding REST: duplicate AsyncTCP (fixed)
+- Symptom: boot loop with `LoadProhibited` (address 0x138) right after WiFi start; before that every REST path
+  answered 500. The backtrace (decoded with addr2line against the built ELF) pointed at `AsyncWebServer::onNotFound`.
+- Cause: `platformio.ini` listed `ottowinter/AsyncTCP-esphome` (1.2.1) while the web server library depends on
+  `esphome/AsyncTCP-esphome` (2.1.4). Our sources were compiled against 1.2.1 and the server library against 2.1.4;
+  `AsyncServer` has a different size in the two, so our `AsyncWebServer` member was too small and the library's
+  constructor wrote past it. This duplicate was in the original project too, so earlier builds were exposed as well.
+- Fix: removed the explicit AsyncTCP entry from `lib_deps`; only one copy remains. After any change to the libraries,
+  check that `.pio/libdeps/<env>` has a single `AsyncTCP-esphome`.
+- Also: unknown paths now answer 404 (the library answers 500 unless a not-found handler is set).
+
 ### Sensor logging (done)
 - `XKC_Y23` (tag `XKC_Y23`, Info): logs the initial state of the Low and High sensors, then every change
   ("Low: water detected" / "Low: no water", same for High)
