@@ -19,6 +19,12 @@ namespace CE::Adapters
 
     void RestApi::Begin()
     {
+        // Without this the library answers 500 for every path nobody handles.
+        _server.onNotFound([](AsyncWebServerRequest* request)
+        {
+            Reply(request, Core::ErrorCode::UnknownCommand);  // HTTP 404
+        });
+
         _server.on("/api/v1/state", HTTP_GET, [this](AsyncWebServerRequest* request)
         {
             request->send(200, kJson, _snapshot.State().c_str());

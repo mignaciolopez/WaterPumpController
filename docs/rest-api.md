@@ -73,7 +73,7 @@ error status and a body `{"ok":false,"err":"<CODE>"}`. The codes are the same as
 | 409 | `PUMP_COOLDOWN`, `PUMP_TOO_SOON`, `HIGH_LEVEL`, `PUMP_FAULT` | The pump refused the request |
 | 500 | `INTERNAL` | Device error, queue full, or no answer within 2 seconds |
 
-Unknown paths answer `404`.
+Unknown paths answer `404` with `{"ok":false,"err":"UNKNOWN_COMMAND"}`.
 
 ## How it behaves
 - `GET` answers from a copy that is refreshed whenever the state or the settings change (at most 250 ms old).

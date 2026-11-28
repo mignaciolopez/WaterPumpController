@@ -83,6 +83,7 @@ namespace CE::App
         _server.Begin();   // register /ws/v1
         _rest.Begin();     // register /api/v1/...
         _http.begin();
+        _log.Log(Core::LogLevel::Info, kTag, "HTTP server started: WebSocket /ws/v1, REST /api/v1");
 
         _samples = xQueueCreate(kSampleQueueLength, sizeof(DistanceSample));
         if (_samples == nullptr)
