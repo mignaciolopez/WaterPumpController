@@ -118,13 +118,15 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 Consequences: the early start of the WebSocket server (before WiFi is connected) works, and the
 A02YYUW_PWM wiring and the XKC_Y23 pins are correct as in `EspWroverKit.h`. `A02YYUW_UART` is still untested on hardware.
 
-## REST checks on the board (not done yet)
-1. `curl http://<ip>/api/v1/state` and `/api/v1/settings` return JSON.
-2. `POST /api/v1/pump` with `{"on":true}` switches the pump (pump disconnected first); a second call right away
-   answers `409 PUMP_TOO_SOON`.
-3. `PUT /api/v1/settings` with a valid and an invalid value (`200`, then `422`).
-4. A write without `Content-Type: application/json` answers `415`.
-5. The WebSocket at `/ws/v1` still works while REST is used, and sees the events caused by REST writes.
+## REST checks on the board
+1. [confirmed] `GET /api/v1/state` and `/api/v1/settings` return JSON; unknown paths answer 404.
+2. [confirmed] `POST /api/v1/pump` switches the pump; refusals seen: `HIGH_LEVEL` (high XKC_Y23 touched by hand)
+   and `PUMP_TOO_SOON`.
+3. [confirmed] `PUT /api/v1/settings`: valid value `ok`; invalid values `INVALID_VALUE`
+   (`minLevelCm` 0 is below `criticalLevelCm`).
+4. [confirmed] Wrong content type (`text/plain`) answers 415.
+5. [open] The WebSocket at `/ws/v1` still works while REST is used, sees the events caused by REST writes, and the
+   `WS` log lines appear.
 
 ## Open Questions / Assumptions to confirm
 - Level formula: `level = height - (distance + filteredDistanceOffsetCm)`, clamped to 0..height
