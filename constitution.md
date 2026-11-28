@@ -22,7 +22,7 @@ Ports and adapters (hexagonal) with an event bus.
 ```
 src/
   core/            Pure C++17. NO Arduino, ESP-IDF, FreeRTOS or ArduinoJson includes.
-    ports/           ILevelSensor, IFloatSwitch, ISwitch, IClock, IStore, IEventBus, ILog
+    ports/           IDistanceSensor, IFloatSwitch, ISwitch, IClock, IStore, ILog, INetwork, IRestarter
     PumpController   state machine: Idle -> Running -> Cooldown -> Fault
     LevelFilter      median filter
     Tank             one sensor + one pump + rules; repeatable unit

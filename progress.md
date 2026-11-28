@@ -2,9 +2,9 @@
 Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitution.md`
 
 ## Summary
-- **Steps Completed:** 3 / 6
-- **Current Step:** Step 4 - Adapters (waiting for go-ahead)
-- **Checks (last run):** `pio test -e native` 91/91 passing · `pio run -e esp-wrover-kit` builds
+- **Steps Completed:** 4 / 6
+- **Current Step:** Step 5 - Composition root + profile (waiting for go-ahead)
+- **Checks (last run):** `pio test -e native` 106/106 passing · `pio run -e esp-wrover-kit` builds
 
 ## Task Log
 ### Step 1 - Ports, PumpController, native test env (done)
@@ -33,6 +33,16 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - Float switches are the primary pump control: `Tank` ignores a rule's WantOn unless `SetRulesMayStart(true)`
 - Error codes: added `UNKNOWN_FIELD`, `PUMP_FAULT`; removed `SENSOR_FAULT` (constitution updated)
 - Native env now also builds `adapters/codec` and uses ArduinoJson
+
+### Step 4 - Adapters, CommandHandler, NetworkWatchdog (done)
+- core: `CommandHandler` (executes decoded commands; settings are saved or rolled back),
+  `NetworkWatchdog` (check -> reconnect -> restart escalation), ports `IDistanceSensor`, `INetwork`, `IRestarter`
+- settings: added `watchdogDelayS` (60) and `maxReconnects` (10)
+- adapters (compile-checked only, NOT yet run on hardware): `RelaySwitch`, `XkcFloatSwitch`,
+  `A02yyuwDistanceSensor`, `SpiffsStore` (writes only changed values, temp-file + rename),
+  `SntpClock` (non-blocking), `WifiNetwork` (non-blocking, pings the gateway), `EspLog`, `EspRestarter`,
+  `WebSocketServer` (/ws/v1; decodes in the network task, queues commands for the control task)
+- Not wired into `main.cpp` yet (old firmware still runs) - that is step 5
 
 ## Open Questions / Assumptions to confirm
 - Level formula: `level = height - (distance + filteredDistanceOffsetCm)`, clamped to 0..height

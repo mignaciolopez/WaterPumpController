@@ -22,6 +22,8 @@ namespace CE::Core
             {"pumpCooldownTimeM",         &Settings::pumpCooldownTimeM,        1,   1440},
             {"nightStartHour",            &Settings::nightStartHour,           0,   23},
             {"nightEndHour",              &Settings::nightEndHour,             0,   23},
+            {"watchdogDelayS",            &Settings::watchdogDelayS,           10,  3600},
+            {"maxReconnects",             &Settings::maxReconnects,            1,   100},
         };
 
         constexpr size_t kFieldCount = sizeof(kSettingFields) / sizeof(kSettingFields[0]);

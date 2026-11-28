@@ -95,6 +95,8 @@ Same data object as the `settings.get` response.
 | `pumpCooldownTimeM` | 60 | 1..1440 | Lockout after a max-on-time stop (minutes) |
 | `nightStartHour` | 22 | 0..23 | Night starts (local hour) |
 | `nightEndHour` | 8 | 0..23 | Night ends (local hour) |
+| `watchdogDelayS` | 60 | 10..3600 | Seconds between network checks (ping to the router) |
+| `maxReconnects` | 10 | 1..100 | Failed reconnect rounds before the device restarts |
 
 Rule between settings: `criticalLevelCm < minLevelCm < maxLevelCm <= heightCm`.
 The table in `src/core/Settings.cpp` is the source of truth; this table must match it.

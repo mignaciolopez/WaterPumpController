@@ -32,6 +32,10 @@ namespace CE::Core
         // Night mode: outside the critical level, the pump is not started at night
         uint16_t nightStartHour           = 22;
         uint16_t nightEndHour             = 8;
+
+        // Network watchdog
+        uint16_t watchdogDelayS           = 60;   // seconds between network checks
+        uint16_t maxReconnects            = 10;   // failed reconnect rounds before the device restarts
     };
 
     struct SettingField

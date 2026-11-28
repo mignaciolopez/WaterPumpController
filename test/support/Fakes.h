@@ -7,6 +7,8 @@
 
 #include "core/ports/IClock.h"
 #include "core/ports/IFloatSwitch.h"
+#include "core/ports/INetwork.h"
+#include "core/ports/IRestarter.h"
 #include "core/ports/ILog.h"
 #include "core/ports/IStore.h"
 #include "core/ports/ISwitch.h"
@@ -72,5 +74,25 @@ namespace CE::Fakes
         std::vector<std::string> messages;
 
         void Log(Core::LogLevel, const char*, const char* message) override { messages.emplace_back(message); }
+    };
+
+    class FakeNetwork : public Core::INetwork
+    {
+    public:
+        bool connected = true;
+        bool pingOk = true;
+        int reconnectCount = 0;
+
+        bool IsConnected() const override { return connected; }
+        bool PingGateway() override { return pingOk; }
+        void Reconnect() override { ++reconnectCount; }
+    };
+
+    class FakeRestarter : public Core::IRestarter
+    {
+    public:
+        int restartCount = 0;
+
+        void Restart() override { ++restartCount; }
     };
 }
