@@ -56,6 +56,14 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - `A02YYUW_UART`: the old code computed `((high << 8) | low) * 100`, but the sensor reports millimetres, so the new
   driver uses `mm / 10` (cm). The frame parser (`A02YYUW_Frame`) is native-tested
 
+### Sensor logging (done)
+- `XKC_Y23` (tag `XKC_Y23`, Info): logs the initial state of the Low and High sensors, then every change
+  ("Low: water detected" / "Low: no water", same for High)
+- `A02YYUW` (tag `A02YYUW`, Info): logs every new median once the window is full, with the water level:
+  "New median: 90.0 cm (water level 50.0 cm)". The median is sliding, so this is one line per reading
+  (every `radarDelayS`). Failed readings are not logged here.
+- Done in `app/Controller`, so it works with either A02YYUW mode and is covered by native tests
+
 ## Hardware checklist (nothing below has run on the board yet)
 0. A02YYUW pins follow your wiring, which is the reverse of the old Pins.hpp: GPIO 19 = ESP RX <- A02YYUW TX,
    GPIO 18 = ESP TX -> A02YYUW RX.

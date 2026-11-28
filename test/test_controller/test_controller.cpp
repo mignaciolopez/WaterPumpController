@@ -78,6 +78,89 @@ namespace
         EXPECT_TRUE(Parse(sink.broadcasts[1])["data"]["cm"].isNull());
     }
 
+    // ---- logging
+
+    std::vector<std::string> LogsFor(const Fakes::FakeLog& log, const std::string& tag)
+    {
+        std::vector<std::string> out;
+        for (const auto& e : log.entries)
+            if (e.tag == tag) out.push_back(e.message);
+        return out;
+    }
+
+    TEST_F(ControllerTest, FirstUpdateLogsTheStateOfBothXkcSensors)
+    {
+        controller.Update();
+
+        const auto logs = LogsFor(log, "XKC_Y23");
+        ASSERT_EQ(logs.size(), 2u);
+        EXPECT_EQ(logs[0], "Low: water detected");
+        EXPECT_EQ(logs[1], "High: no water");
+    }
+
+    TEST_F(ControllerTest, XkcChangesAreLoggedOnceEach)
+    {
+        controller.Update();
+        log.entries.clear();
+
+        controller.Update();                   // nothing changed
+        EXPECT_TRUE(LogsFor(log, "XKC_Y23").empty());
+
+        low.wet = false;
+        controller.Update();
+        controller.Update();                   // still the same state
+        auto logs = LogsFor(log, "XKC_Y23");
+        ASSERT_EQ(logs.size(), 1u);
+        EXPECT_EQ(logs[0], "Low: no water");
+
+        log.entries.clear();
+        low.wet = true;
+        high.wet = true;
+        controller.Update();
+        logs = LogsFor(log, "XKC_Y23");
+        ASSERT_EQ(logs.size(), 2u);
+        EXPECT_EQ(logs[0], "Low: water detected");
+        EXPECT_EQ(logs[1], "High: water detected");
+    }
+
+    TEST_F(ControllerTest, NoMedianLogUntilTheWindowIsFull)
+    {
+        for (int i = 0; i < 4; ++i) controller.OnDistance({true, 90.0f});
+
+        EXPECT_TRUE(LogsFor(log, "A02YYUW").empty());
+    }
+
+    TEST_F(ControllerTest, EveryNewMedianIsLogged)
+    {
+        for (int i = 0; i < 5; ++i) controller.OnDistance({true, 90.0f});
+        auto logs = LogsFor(log, "A02YYUW");
+        ASSERT_EQ(logs.size(), 1u);
+        EXPECT_EQ(logs[0], "New median: 90.0 cm (water level 50.0 cm)");
+
+        controller.OnDistance({true, 90.0f});
+        controller.OnDistance({true, 90.0f});
+        EXPECT_EQ(LogsFor(log, "A02YYUW").size(), 3u);
+    }
+
+    TEST_F(ControllerTest, MedianLogShowsTheFilteredValueNotTheRawSample)
+    {
+        for (const float cm : {90.0f, 90.0f, 90.0f, 90.0f, 20.0f}) controller.OnDistance({true, cm});
+
+        const auto logs = LogsFor(log, "A02YYUW");
+        ASSERT_EQ(logs.size(), 1u);
+        EXPECT_EQ(logs[0], "New median: 90.0 cm (water level 50.0 cm)");
+    }
+
+    TEST_F(ControllerTest, FailedReadingsAreNotLoggedAsMedians)
+    {
+        for (int i = 0; i < 5; ++i) controller.OnDistance({true, 90.0f});
+        log.entries.clear();
+
+        controller.OnDistance({false, 0.0f});
+
+        EXPECT_TRUE(LogsFor(log, "A02YYUW").empty());
+    }
+
     TEST_F(ControllerTest, NothingIsRepublishedWhenNothingChanged)
     {
         controller.Update();

@@ -37,6 +37,9 @@ namespace CE::Core
         bool HasLevel() const { return _filter.Ready(); }
         float LevelCm() const;
 
+        /// Median of the distance readings (cm). Only valid when HasLevel().
+        float MedianDistanceCm() const { return _filter.Median(); }
+
     private:
         PumpController& _pump;
         IClock& _clock;

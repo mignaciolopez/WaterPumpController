@@ -49,10 +49,14 @@ namespace CE::App
 
     private:
         void PublishChanges();
+        void LogXkcChanges();
 
         Core::Settings _settings;
         Core::IMessageSink& _sink;
         Core::IStore& _store;
+        Core::ILog& _log;
+        Core::IFloatSwitch& _xkcLow;
+        Core::IFloatSwitch& _xkcHigh;
 
         Core::PumpController _pump;
         Core::Tank _tank;
@@ -65,5 +69,9 @@ namespace CE::App
         Core::PumpState _lastPump;
         bool _lastLevelValid = false;
         float _lastLevelCm = 0.0f;
+
+        bool _xkcKnown = false;
+        bool _lastXkcLow = false;
+        bool _lastXkcHigh = false;
     };
 }

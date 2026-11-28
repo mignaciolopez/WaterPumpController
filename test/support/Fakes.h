@@ -72,9 +72,16 @@ namespace CE::Fakes
     class FakeLog : public Core::ILog
     {
     public:
-        std::vector<std::string> messages;
+        struct Entry { Core::LogLevel level; std::string tag; std::string message; };
 
-        void Log(Core::LogLevel, const char*, const char* message) override { messages.emplace_back(message); }
+        std::vector<std::string> messages;   // messages only
+        std::vector<Entry> entries;          // level + tag + message
+
+        void Log(const Core::LogLevel level, const char* tag, const char* message) override
+        {
+            messages.emplace_back(message);
+            entries.push_back({level, tag, message});
+        }
     };
 
     class FakeNetwork : public Core::INetwork

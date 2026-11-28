@@ -1,6 +1,7 @@
 #include "app/Controller.h"
 
 #include <cmath>
+#include <cstdio>
 
 #include "adapters/codec/CodecV1.h"
 
@@ -26,7 +27,7 @@ namespace CE::App
 
     Controller::Controller(ISwitch& relay, IFloatSwitch& lowSensor, IFloatSwitch& highSensor, IClock& clock,
                            IStore& store, ILog& log, IMessageSink& sink)
-        : _sink(sink), _store(store),
+        : _sink(sink), _store(store), _log(log), _xkcLow(lowSensor), _xkcHigh(highSensor),
           _pump(relay, lowSensor, highSensor, clock, store, log),
           _tank(_pump, clock, _settings),
           _handler(_pump, _settings, store)
@@ -46,8 +47,22 @@ namespace CE::App
 
     void Controller::OnDistance(const DistanceSample& sample)
     {
-        if (sample.valid) _tank.OnDistanceSample(sample.cm);
-        else _tank.OnDistanceFailure();
+        if (!sample.valid)
+        {
+            _tank.OnDistanceFailure();
+            return;
+        }
+
+        _tank.OnDistanceSample(sample.cm);
+
+        if (_tank.HasLevel())
+        {
+            // The window is full: this sample produced a new median.
+            char message[96];
+            std::snprintf(message, sizeof(message), "New median: %.1f cm (water level %.1f cm)",
+                          _tank.MedianDistanceCm(), _tank.LevelCm());
+            _log.Log(LogLevel::Info, "A02YYUW", message);
+        }
     }
 
     void Controller::OnCommand(const uint32_t clientId, const Command& command)
@@ -81,8 +96,24 @@ namespace CE::App
 
     void Controller::Update()
     {
+        LogXkcChanges();
         _tank.Update();
         PublishChanges();
+    }
+
+    void Controller::LogXkcChanges()
+    {
+        const bool low = _xkcLow.IsDetectingWater();
+        const bool high = _xkcHigh.IsDetectingWater();
+
+        if (!_xkcKnown || low != _lastXkcLow)
+            _log.Log(LogLevel::Info, "XKC_Y23", low ? "Low: water detected" : "Low: no water");
+        if (!_xkcKnown || high != _lastXkcHigh)
+            _log.Log(LogLevel::Info, "XKC_Y23", high ? "High: water detected" : "High: no water");
+
+        _xkcKnown = true;
+        _lastXkcLow = low;
+        _lastXkcHigh = high;
     }
 
     void Controller::PublishChanges()
