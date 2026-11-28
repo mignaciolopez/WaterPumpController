@@ -2,7 +2,7 @@
 
 namespace CE::Core
 {
-    /// A binary water-presence sensor (float switch, XKC-Y23...).
+    /// A binary water-presence sensor (float switch, XKC_Y23...).
     class IFloatSwitch
     {
     public:

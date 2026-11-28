@@ -11,7 +11,7 @@ This document is the source of truth for architecture and rules. Changes to it n
 - **Test:** PlatformIO `native` env + GoogleTest (runs on the PC, no hardware). Unity is not used.
 - **Libraries:** ArduinoJson, ESPAsyncWebServer-esphome, AsyncTCP-esphome, ESP32Ping (watchdog rule).
   DHT / Adafruit Unified Sensor stay for the future weather adapter only.
-  Removed: WiFiManager, NewPing (unless the HC-SR04 driver is kept).
+  Removed: WiFiManager, NewPing (the old HC-SR04 driver is gone; A02YYUW_PWM/A02YYUW_UART replace it).
 - **Storage:** SPIFFS, behind the `IStore` port
 - **Time:** SNTP (ESP-IDF), behind the `IClock` port
 - **Supported pin profile:** ESP32 only. The ESP32-C3 profile is dropped.
@@ -30,7 +30,7 @@ src/
     rules/           Rule interface + rules (level, max on-time, night mode, network watchdog)
     Settings         field table (name, ptr, min, max, default); drives validation and (de)serialization
   adapters/        Implement the ports. May use Arduino/ESP-IDF.
-    sensors/         A02YYUW, XKC_Y23, HC-SR04 (optional), DHT (future)
+    sensors/         A02YYUW_PWM, A02YYUW_UART (+ frame parser), XKC_Y23, DHT (future)
     actuators/       Relay
     storage/         SpiffsStore
     platform/        SntpClock, FreeRtosScheduler, WiFi/Network, Ping
@@ -39,8 +39,9 @@ src/
   app/             Composition root and application logic.
     Controller       wires core pieces, turns commands/state changes into protocol messages (testable)
     Firmware         builds the adapters, owns the tasks (control, sensor, network)
-    Profile          per-device pins, credentials, network setup
-    profiles/        one header per device (EspWroverKit.h)
+    Profile          per-device pins, distance sensor type (A02YYUW_PWM or A02YYUW_UART), credentials, network setup
+    profiles/        one header per device (EspWroverKit.h); pins are commented with the sensor they belong to
+                     (XKC_Y23 Low / High, A02YYUW RX / TX)
     (main.cpp creates Firmware with a profile)
 test/              Native tests for core/ and codec/
 docs/protocol.md   Wire protocol specification
@@ -106,6 +107,7 @@ Full specification lives in `docs/protocol.md`.
 - Namespace: `CE` (adapters in `CE::Adapters`, core in `CE::Core`)
 - Types and methods: `PascalCase`; private members: `_camelCase`; constants: `kPascalCase`
 - Interfaces start with `I` (`ISwitch`)
+- Hardware adapters keep the name of the device they drive (`XKC_Y23`, `A02YYUW_PWM`, `A02YYUW_UART`)
 - Header guards: `#pragma once`; headers `.h` for classes, `.hpp` for header-only
 - Max function length: 50 lines; max file length: 300 lines
 - Prefer `constexpr`, `enum class`, `std::function`/interfaces over macros

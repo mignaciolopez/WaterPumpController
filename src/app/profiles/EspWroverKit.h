@@ -7,19 +7,23 @@ namespace CE::App
 {
     // ESP32 WROVER kit.
     //
-    // The old firmware swapped the two float-switch pins in the pump constructor, and the pump was
-    // disabled in App::Setup(), so this wiring was never really exercised. The names below follow the
-    // old Pins.hpp: low sensor on GPIO 26, high sensor on GPIO 27.
-    // If your sensors are wired the other way around the pump will report a sensor fault and stay off.
+    // The old firmware swapped the two XKC_Y23 pins in the pump constructor, and the pump was
+    // disabled in App::Setup(), so this wiring was never really exercised. The pins below follow the
+    // names in the old Pins.hpp. If your sensors are wired the other way around, the pump will report
+    // a sensor fault and stay off.
     inline constexpr Profile kEspWroverKit{
-        /* pumpRelayPin       */ 25,
-        /* floatLowPin        */ 26,
-        /* floatHighPin       */ 27,
-        /* distanceEchoPin    */ 18,  // RX <- remote TX
-        /* distanceTriggerPin */ 19,  // TX -> remote RX
-        /* wifiSsid           */ WIFI_SSID,
-        /* wifiPassword       */ WIFI_PASS,
-        /* ntpServer          */ "pool.ntp.org",
-        /* webSocketPort      */ 80,
+        /* pumpRelayPin   */ 25,
+        /* xkcLowPin      */ 26,  // XKC_Y23 Low
+        /* xkcHighPin     */ 27,  // XKC_Y23 High
+
+        /* distanceSensor */ DistanceSensorType::A02YYUW_PWM,
+        /* distanceRxPin  */ 18,  // ESP TX -> A02YYUW RX
+        /* distanceTxPin  */ 19,  // ESP RX <- A02YYUW TX
+        /* distanceSerial */ 2,   // used by A02YYUW_UART only
+
+        /* wifiSsid       */ WIFI_SSID,
+        /* wifiPassword   */ WIFI_PASS,
+        /* ntpServer      */ "pool.ntp.org",
+        /* webSocketPort  */ 80,
     };
 }

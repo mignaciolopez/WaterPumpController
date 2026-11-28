@@ -12,8 +12,9 @@
 #include "adapters/platform/EspRestarter.h"
 #include "adapters/platform/SntpClock.h"
 #include "adapters/platform/WifiNetwork.h"
-#include "adapters/sensors/A02yyuwDistanceSensor.h"
-#include "adapters/sensors/XkcFloatSwitch.h"
+#include "adapters/sensors/A02YYUW_PWM.h"
+#include "adapters/sensors/A02YYUW_UART.h"
+#include "adapters/sensors/XKC_Y23.h"
 #include "adapters/storage/SpiffsStore.h"
 #include "app/Controller.h"
 #include "app/Profile.h"
@@ -55,9 +56,14 @@ namespace CE::App
         Adapters::EspLog _log;
         Adapters::SpiffsStore _store;
         Adapters::RelaySwitch _relay;
-        Adapters::XkcFloatSwitch _floatLow;
-        Adapters::XkcFloatSwitch _floatHigh;
-        Adapters::A02yyuwDistanceSensor _distanceSensor;
+        Adapters::XKC_Y23 _xkcLow;
+        Adapters::XKC_Y23 _xkcHigh;
+
+        // Both sensor drivers exist; the profile picks which one is started and used.
+        DistanceSensorType _distanceType;
+        Adapters::A02YYUW_PWM _distancePwm;
+        Adapters::A02YYUW_UART _distanceUart;
+        Core::IDistanceSensor& _distanceSensor;
         Adapters::SntpClock _clock;
         Adapters::WifiNetwork _wifi;
         Adapters::EspRestarter _restarter;

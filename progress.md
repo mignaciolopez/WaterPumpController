@@ -38,8 +38,8 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - core: `CommandHandler` (executes decoded commands; settings are saved or rolled back),
   `NetworkWatchdog` (check -> reconnect -> restart escalation), ports `IDistanceSensor`, `INetwork`, `IRestarter`
 - settings: added `watchdogDelayS` (60) and `maxReconnects` (10)
-- adapters (compile-checked only, NOT yet run on hardware): `RelaySwitch`, `XkcFloatSwitch`,
-  `A02yyuwDistanceSensor`, `SpiffsStore` (writes only changed values, temp-file + rename),
+- adapters (compile-checked only, NOT yet run on hardware): `RelaySwitch`, `XKC_Y23`,
+  `A02YYUW_PWM`, `A02YYUW_UART`, `SpiffsStore` (writes only changed values, temp-file + rename),
   `SntpClock` (non-blocking), `WifiNetwork` (non-blocking, pings the gateway), `EspLog`, `EspRestarter`,
   `WebSocketServer` (/ws/v1; decodes in the network task, queues commands for the control task)
 - Not wired into `main.cpp` yet (old firmware still runs) - that is step 5
@@ -48,17 +48,23 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - Settings are now signed 32-bit; new `utcOffsetMinutes` (default -180) makes the time zone configurable
 - `app/Controller` (native-tested): settings, pump, tank, rules, command handling, event publishing
 - `app/Firmware`: control task (owns all logic), sensor task (queue to control), network task (watchdog)
-- `app/Profile` + `profiles/EspWroverKit.h`; `main.cpp` replaced
+- `app/Profile` + `profiles/EspWroverKit.h`; `main.cpp` replaced. The profile picks the distance sensor
+  (`A02YYUW_PWM` or `A02YYUW_UART`); its pins are commented as the A02YYUW RX/TX and the XKC_Y23 Low/High
 - Old firmware removed (`services/`, `os/`, `domain/`, `driver/`, `config/`, old `App`); still in git history
-- Removed unused libraries WiFiManager and NewPing (HC-SR04 / UART drivers were removed with the old code)
+- Removed unused libraries WiFiManager and NewPing. The HC-SR04 driver was dropped; `A02YYUW_UART` was ported
+  (`A02YYUW_PWM` and `XKC_Y23` keep their original names)
+- `A02YYUW_UART`: the old code computed `((high << 8) | low) * 100`, but the sensor reports millimetres, so the new
+  driver uses `mm / 10` (cm). The frame parser (`A02YYUW_Frame`) is native-tested
 
 ## Hardware checklist (nothing below has run on the board yet)
-1. Check the float-switch wiring: low sensor on GPIO 26, high on GPIO 27 (old code swapped them). With the pump
+1. Check the XKC_Y23 wiring: Low on GPIO 26, High on GPIO 27 (old code swapped them). With the pump
    disconnected, wet/dry each sensor and read `state.get`; wrong wiring shows a `sensorInconsistent` fault.
 2. Confirm the relay is off at boot and switches with `pump.set`.
 3. Confirm WiFi connects, time syncs (pump leaves the `noTime` fault) and `ws://<ip>/ws/v1` answers `state.get`.
-4. Watch stack headroom (debug log every 10 s) and tune the task stack sizes in `Firmware.cpp`.
-5. Set `utcOffsetMinutes` for your location if it is not UTC-3.
+4. If you use `A02YYUW_UART`, set `distanceSensor` in the profile and check the RX/TX wiring (a swapped pair
+   gives no readings, so the level stays unknown).
+5. Watch stack headroom (debug log every 10 s) and tune the task stack sizes in `Firmware.cpp`.
+6. Set `utcOffsetMinutes` for your location if it is not UTC-3.
 
 ## Open Questions / Assumptions to confirm
 - Level formula: `level = height - (distance + filteredDistanceOffsetCm)`, clamped to 0..height

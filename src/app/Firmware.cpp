@@ -17,17 +17,28 @@ namespace CE::App
         constexpr uint32_t kControlPeriodMs = 250;
         constexpr uint32_t kCleanupEveryLoops = 40;  // every 10 s
         constexpr size_t kSampleQueueLength = 8;
+
+        // Serial 0 is the console, so anything but 1 selects UART2.
+        HardwareSerial& SerialFor(const uint8_t number)
+        {
+            return number == 1 ? Serial1 : Serial2;
+        }
     }
 
     Firmware::Firmware(const Profile& profile)
         : _relay(profile.pumpRelayPin),
-          _floatLow(profile.floatLowPin),
-          _floatHigh(profile.floatHighPin),
-          _distanceSensor(profile.distanceEchoPin, profile.distanceTriggerPin),
+          _xkcLow(profile.xkcLowPin),
+          _xkcHigh(profile.xkcHighPin),
+          _distanceType(profile.distanceSensor),
+          _distancePwm(profile.distanceRxPin, profile.distanceTxPin),
+          _distanceUart(profile.distanceRxPin, profile.distanceTxPin, SerialFor(profile.distanceSerial)),
+          _distanceSensor(profile.distanceSensor == DistanceSensorType::A02YYUW_UART
+                              ? static_cast<Core::IDistanceSensor&>(_distanceUart)
+                              : static_cast<Core::IDistanceSensor&>(_distancePwm)),
           _clock(profile.ntpServer),
           _wifi(profile.wifiSsid, profile.wifiPassword),
           _server(profile.webSocketPort),
-          _controller(_relay, _floatLow, _floatHigh, _clock, _store, _log, _server),
+          _controller(_relay, _xkcLow, _xkcHigh, _clock, _store, _log, _server),
           _watchdog(_wifi, _restarter, _log)
     {
     }
@@ -38,9 +49,15 @@ namespace CE::App
 
         // Pins first: the relay must be off before anything else can go wrong.
         _relay.Begin();
-        _floatLow.Begin();
-        _floatHigh.Begin();
-        _distanceSensor.Begin();
+        _xkcLow.Begin();
+        _xkcHigh.Begin();
+
+        // The distance sensor is optional: the XKC_Y23 sensors are the primary control, so a sensor
+        // that cannot start is reported and the level just stays unknown.
+        const bool distanceReady =
+            _distanceType == DistanceSensorType::A02YYUW_UART ? _distanceUart.Begin() : _distancePwm.Begin();
+        if (!distanceReady)
+            _log.Log(Core::LogLevel::Error, kTag, "Distance sensor failed to start; level will be unknown");
 
         if (!_store.Begin())
             _log.Log(Core::LogLevel::Error, kTag, "Storage unavailable: settings and pump state will not persist");
