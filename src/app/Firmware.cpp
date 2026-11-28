@@ -40,7 +40,7 @@ namespace CE::App
           _clock(profile.ntpServer),
           _wifi(profile.wifiSsid, profile.wifiPassword),
           _http(profile.httpPort),
-          _server(_http, _commands),
+          _server(_http, _commands, _log),
           _rest(_http, _commands, _snapshot, _log),
           _controller(_relay, _xkcLow, _xkcHigh, _clock, _store, _log, _server),
           _watchdog(_wifi, _restarter, _log)

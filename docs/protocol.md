@@ -116,6 +116,15 @@ The table in `src/core/Settings.cpp` is the source of truth; this table must mat
 | `PUMP_FAULT` | Pump is in fault (clock not synced, or inconsistent level sensors) |
 | `INTERNAL` | Unexpected device error |
 
+## Logging
+On the serial console (tag `WS`, Info level) the device logs clients connecting and disconnecting, every command
+it receives and every answer it sends (long answers are cut after 100 characters). Pushed events are not logged.
+```
+[I][WS] Client #3 connected from 192.168.100.5
+[I][WS] WS #3 received: {"cmd":"state.get","id":1}
+[I][WS] WS #3 answered: {"id":1,"ok":true,"data":{"pump":{"mode":"idle","on":false,"cooldown":false,"fault":"none",...
+```
+
 ## Compatibility rules
 - Adding a new command, event, field or error code does not change the version. Clients must ignore what they do not know.
 - Renaming or removing anything, or changing a meaning, requires a new version (new endpoint path).

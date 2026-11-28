@@ -89,8 +89,9 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 
 ### REST call logging (done)
 - Tag `REST`, Info: "<METHOD> <path> from <client ip>" (writes add the body) when a call arrives, and
-  "<METHOD> <path> -> <status>" when it is answered (writes and errors add the answer body). WebSocket commands are
-  not logged yet.
+  "<METHOD> <path> -> <status>" when it is answered (writes and errors add the answer body).
+- WebSocket (tag `WS`, Info): clients connecting/leaving, each command received and each answer sent (cut after
+  100 characters). Pushed events are not logged (the level event fires about once a second).
 - `PUT /api/v1/settings` was confirmed on the board after the batched-store fix (both `PUT`s answered `ok`).
 
 ### Sensor logging (done)
