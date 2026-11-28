@@ -86,6 +86,13 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - Experiment firmware: `pio run -e esp-wrover-kit-nowssend -t upload` is identical but the WebSocket never sends
   anything (`WS_DISABLE_SENDS`). Run `tools\ws-check.ps1` three times: no crash = sending from the control task is
   the cause; still crashes = the problem is in the library/connection handling itself.
+- First experiment attempt was inconclusive: the script received answers and events, so the board ran the NORMAL
+  firmware (in the no-send build `ws-check` prints "Answers to commands: 0"). On the normal firmware three disconnects
+  in a row did not crash. So the crash is intermittent (consistent with a race, but three clean runs prove nothing).
+- Next: `tools\ws-stress.ps1` connects and disconnects many times at random moments (optionally dropping the
+  connection abruptly) and then checks whether the board still answers. Run it against both builds:
+  `.	ools\ws-stress.ps1 -Cycles 60 -Abrupt` on the normal firmware (expected: a crash within a few dozen cycles if
+  the race theory is right) and on `esp-wrover-kit-nowssend` (expected: no crash). Compare.
 - The Arduino core has the built-in HTTP server with WebSocket support (`CONFIG_HTTPD_WS_SUPPORT 1`,
   `httpd_ws_send_frame_async` is meant to be used from other tasks); it is the alternative to the async libraries.
 - Options if the WebSocket is confirmed as the cause: (a) a patched copy of the web server library in `lib/` with a
