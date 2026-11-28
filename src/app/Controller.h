@@ -61,12 +61,15 @@ namespace CE::App
     private:
         void PublishChanges();
         void LogXkcChanges();
+        void RecordMedian(float distanceCm);
+        void LogMedian(int64_t now);
         void Announce(const Core::CommandOutcome& outcome);
 
         Core::Settings _settings;
         Core::IMessageSink& _sink;
         Core::IStore& _store;
         Core::ILog& _log;
+        Core::IClock& _clock;
         Core::IFloatSwitch& _xkcLow;
         Core::IFloatSwitch& _xkcHigh;
 
@@ -82,6 +85,15 @@ namespace CE::App
         Core::PumpState _lastPump;
         bool _lastLevelValid = false;
         float _lastLevelCm = 0.0f;
+
+        // Distance medians: logged at most every kMedianLogIntervalS, together with the last kMedianHistory.
+        static constexpr int64_t kMedianLogIntervalS = 10;
+        static constexpr size_t kMedianHistory = 15;
+        float _medians[kMedianHistory] = {};
+        size_t _medianNext = 0;      // where the next median is stored
+        size_t _medianCount = 0;     // how many are stored (up to kMedianHistory)
+        bool _medianLogged = false;
+        int64_t _lastMedianLogAt = 0;
 
         bool _xkcKnown = false;
         bool _lastXkcLow = false;

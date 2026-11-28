@@ -196,16 +196,61 @@ namespace
         EXPECT_TRUE(LogsFor(log, "A02YYUW").empty());
     }
 
-    TEST_F(ControllerTest, EveryNewMedianIsLogged)
+    TEST_F(ControllerTest, FirstMedianIsLoggedRightAway)
     {
         for (int i = 0; i < 5; ++i) controller.OnDistance({true, 90.0f});
-        auto logs = LogsFor(log, "A02YYUW");
-        ASSERT_EQ(logs.size(), 1u);
-        EXPECT_EQ(logs[0], "New median: 90.0 cm (water level 50.0 cm)");
 
+        const auto logs = LogsFor(log, "A02YYUW");
+        ASSERT_EQ(logs.size(), 1u);
+        EXPECT_EQ(logs[0], "New median: 90.0 cm (water level 50.0 cm) (90 cm)");
+    }
+
+    TEST_F(ControllerTest, MedianIsLoggedAtMostOnceEveryTenSeconds)
+    {
+        for (int i = 0; i < 5; ++i) controller.OnDistance({true, 90.0f});
+        ASSERT_EQ(LogsFor(log, "A02YYUW").size(), 1u);
+
+        clock.Advance(9);
         controller.OnDistance({true, 90.0f});
         controller.OnDistance({true, 90.0f});
-        EXPECT_EQ(LogsFor(log, "A02YYUW").size(), 3u);
+        EXPECT_EQ(LogsFor(log, "A02YYUW").size(), 1u);    // 9 s: still quiet
+
+        clock.Advance(1);
+        controller.OnDistance({true, 90.0f});
+        const auto logs = LogsFor(log, "A02YYUW");
+        ASSERT_EQ(logs.size(), 2u);                        // 10 s: logged again
+        EXPECT_EQ(logs[1], "New median: 90.0 cm (water level 50.0 cm) (90, 90, 90, 90 cm)");
+    }
+
+    TEST_F(ControllerTest, MedianListIsWholeNumbersOldestFirstWithCmOnlyOnTheLast)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));   // window of 1: the median is the latest sample
+        log.entries.clear();
+
+        controller.OnDistance({true, 80.4f});    // logged right away
+        controller.OnDistance({true, 81.6f});
+        controller.OnDistance({true, 90.0f});
+        clock.Advance(10);
+        controller.OnDistance({true, 100.0f});
+
+        const auto logs = LogsFor(log, "A02YYUW");
+        ASSERT_EQ(logs.size(), 2u);
+        EXPECT_EQ(logs[0], "New median: 80.4 cm (water level 59.6 cm) (80 cm)");
+        EXPECT_EQ(logs[1], "New median: 100.0 cm (water level 40.0 cm) (80, 82, 90, 100 cm)");
+    }
+
+    TEST_F(ControllerTest, MedianListKeepsOnlyTheLastFifteen)
+    {
+        controller.Execute(SetSetting("medianWindow", 1, 1));
+        log.entries.clear();
+
+        for (int i = 1; i <= 20; ++i) controller.OnDistance({true, static_cast<float>(i)});   // 1..20 (3 cm minimum is irrelevant here)
+        clock.Advance(10);
+        controller.OnDistance({true, 21.0f});
+
+        const auto logs = LogsFor(log, "A02YYUW");
+        ASSERT_EQ(logs.size(), 2u);
+        EXPECT_EQ(logs[1], "New median: 21.0 cm (water level 119.0 cm) (7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21 cm)");
     }
 
     TEST_F(ControllerTest, MedianLogShowsTheFilteredValueNotTheRawSample)
@@ -214,7 +259,7 @@ namespace
 
         const auto logs = LogsFor(log, "A02YYUW");
         ASSERT_EQ(logs.size(), 1u);
-        EXPECT_EQ(logs[0], "New median: 90.0 cm (water level 50.0 cm)");
+        EXPECT_EQ(logs[0], "New median: 90.0 cm (water level 50.0 cm) (90 cm)");
     }
 
     TEST_F(ControllerTest, FailedReadingsAreNotLoggedAsMedians)

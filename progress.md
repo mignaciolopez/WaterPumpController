@@ -81,9 +81,10 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 ### Sensor logging (done)
 - `XKC_Y23` (tag `XKC_Y23`, Info): logs the initial state of the Low and High sensors, then every change
   ("Low: water detected" / "Low: no water", same for High)
-- `A02YYUW` (tag `A02YYUW`, Info): logs every new median once the window is full, with the water level:
-  "New median: 90.0 cm (water level 50.0 cm)". The median is sliding, so this is one line per reading
-  (every `radarDelayS`). Failed readings are not logged here.
+- `A02YYUW` (tag `A02YYUW`, Info): once the window is full it logs at most every 10 seconds (the first one right
+  away), with the water level and the last 15 distance medians (oldest first, whole numbers, `cm` only after the last):
+  "New median: 90.0 cm (water level 50.0 cm) (88, 89, 90 cm)". Fewer than 15 values are shown until 15 exist.
+  Failed readings are not logged here. The 10 s interval is `kMedianLogIntervalS` in `app/Controller.h`.
 - Done in `app/Controller`, so it works with either A02YYUW mode and is covered by native tests
 
 ## Hardware checklist (verified on the board by the project owner)

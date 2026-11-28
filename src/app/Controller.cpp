@@ -27,7 +27,7 @@ namespace CE::App
 
     Controller::Controller(ISwitch& relay, IFloatSwitch& lowSensor, IFloatSwitch& highSensor, IClock& clock,
                            IStore& store, ILog& log, IMessageSink& sink)
-        : _sink(sink), _store(store), _log(log), _xkcLow(lowSensor), _xkcHigh(highSensor),
+        : _sink(sink), _store(store), _log(log), _clock(clock), _xkcLow(lowSensor), _xkcHigh(highSensor),
           _pump(relay, lowSensor, highSensor, clock, store, log),
           _tank(_pump, clock, _settings),
           _handler(_pump, _settings, store)
@@ -58,11 +58,40 @@ namespace CE::App
         if (_tank.HasLevel())
         {
             // The window is full: this sample produced a new median.
-            char message[96];
-            std::snprintf(message, sizeof(message), "New median: %.1f cm (water level %.1f cm)",
-                          _tank.MedianDistanceCm(), _tank.LevelCm());
-            _log.Log(LogLevel::Info, "A02YYUW", message);
+            RecordMedian(_tank.MedianDistanceCm());
+
+            const int64_t now = _clock.NowS();
+            if (!_medianLogged || now - _lastMedianLogAt >= kMedianLogIntervalS) LogMedian(now);
         }
+    }
+
+    void Controller::RecordMedian(const float distanceCm)
+    {
+        _medians[_medianNext] = distanceCm;
+        _medianNext = (_medianNext + 1) % kMedianHistory;
+        if (_medianCount < kMedianHistory) ++_medianCount;
+    }
+
+    void Controller::LogMedian(const int64_t now)
+    {
+        _medianLogged = true;
+        _lastMedianLogAt = now;
+
+        // "New median: 90.0 cm (water level 50.0 cm) (88, 89, 90 cm)": the list is oldest first, whole
+        // numbers, and only the last one carries the unit.
+        char message[224];
+        int length = std::snprintf(message, sizeof(message), "New median: %.1f cm (water level %.1f cm) (",
+                                   _tank.MedianDistanceCm(), _tank.LevelCm());
+
+        const size_t first = (_medianNext + kMedianHistory - _medianCount) % kMedianHistory;
+        for (size_t i = 0; i < _medianCount && length > 0 && static_cast<size_t>(length) < sizeof(message); ++i)
+        {
+            const bool last = i + 1 == _medianCount;
+            const long value = std::lround(_medians[(first + i) % kMedianHistory]);
+            length += std::snprintf(message + length, sizeof(message) - length, last ? "%ld cm)" : "%ld, ", value);
+        }
+
+        _log.Log(LogLevel::Info, "A02YYUW", message);
     }
 
     void Controller::OnCommand(const uint32_t clientId, const Command& command)
