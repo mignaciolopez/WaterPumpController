@@ -120,8 +120,8 @@ The table in `src/core/Settings.cpp` is the source of truth; this table must mat
 `tools/ws-check.ps1` connects to `/ws/v1`, sends `state.get` and `settings.get`, and prints every message the
 device sends (answers and pushed events) for a few seconds. No extra tools are needed.
 ```powershell
-.	ools\ws-check.ps1 -Ip 192.168.100.247 -Seconds 30
-.	ools\ws-check.ps1 -Send '{"cmd":"pump.set","id":5,"data":{"on":false}}'
+.\tools\ws-check.ps1 -Ip 192.168.100.247 -Seconds 30
+.\tools\ws-check.ps1 -Send '{"cmd":"pump.set","id":5,"data":{"on":false}}'
 ```
 Make a REST call from another window while it runs to see the events it causes.
 
