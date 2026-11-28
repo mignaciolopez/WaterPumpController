@@ -35,11 +35,18 @@ namespace CE::Adapters
     void WebSocketServer::Send(const uint32_t clientId, const std::string& message)
     {
         LogMessage("answered", clientId, message.c_str(), message.size());
+#ifdef WS_DISABLE_SENDS
+        return;  // experiment build: nothing is ever sent on a WebSocket
+#endif
         _socket.text(clientId, message.c_str(), message.size());
     }
 
     void WebSocketServer::Broadcast(const std::string& message)
     {
+#ifdef WS_DISABLE_SENDS
+        (void)message;
+        return;  // experiment build: nothing is ever sent on a WebSocket
+#endif
         _socket.textAll(message.c_str(), message.size());
     }
 

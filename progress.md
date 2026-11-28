@@ -79,6 +79,15 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
   my own cannot close that window.
 - Diagnostic added: the control task checks the whole heap every 2 s and logs `HEAP CORRUPTION DETECTED` right after the
   damage happens, next to the `REST`/`WS` lines that show what was going on (`kHeapCheckEveryLoops` in `Firmware.cpp`).
+- Evidence so far: two crashes (old build, then the build with the heap check), both about 30 s after the WebSocket
+  client connected, i.e. when `ws-check` closed the connection, with the same backtrace (`tcp_close`). The second one
+  was a "Bad tail" instead of "Bad head", and the 2-second heap check logged nothing before it, so the damage is done
+  during the disconnect itself. REST (all work in the network task) never crashed over dozens of calls.
+- Experiment firmware: `pio run -e esp-wrover-kit-nowssend -t upload` is identical but the WebSocket never sends
+  anything (`WS_DISABLE_SENDS`). Run `tools\ws-check.ps1` three times: no crash = sending from the control task is
+  the cause; still crashes = the problem is in the library/connection handling itself.
+- The Arduino core has the built-in HTTP server with WebSocket support (`CONFIG_HTTPD_WS_SUPPORT 1`,
+  `httpd_ws_send_frame_async` is meant to be used from other tasks); it is the alternative to the async libraries.
 - Options if the WebSocket is confirmed as the cause: (a) a patched copy of the web server library in `lib/` with a
   lock around the client list, (b) send WebSocket data only from the network task, (c) keep REST only. REST is not
   affected: its handlers run in the network task.
