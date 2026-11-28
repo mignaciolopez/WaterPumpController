@@ -22,7 +22,7 @@ namespace CE::App
         /* distanceSerial */ 2,   // used by A02YYUW_UART only
 
         /* weatherSensor  */ WeatherSensorType::Dht11,
-        /* weatherPin     */ 21,  // DHT11 data
+        /* weatherPin     */ 12,  // DHT11 data
 
         /* wifiSsid       */ WIFI_SSID,
         /* wifiPassword   */ WIFI_PASS,
