@@ -93,6 +93,7 @@ namespace CE::App
     private:
         void PublishChanges();
         void LogXkcChanges();
+        void LogCooldown();
         void RecordMedian(float distanceCm);
         void LogMedian(int64_t now);
         void Announce(const Core::CommandOutcome& outcome);
@@ -127,6 +128,11 @@ namespace CE::App
         size_t _medianCount = 0;     // how many are stored (up to kMedianHistory)
         bool _medianLogged = false;
         int64_t _lastMedianLogAt = 0;
+
+        // While the pump is on cooldown: logged right away and then every kCooldownLogIntervalS.
+        static constexpr int64_t kCooldownLogIntervalS = 10;
+        bool _cooldownLogged = false;
+        int64_t _lastCooldownLogAt = 0;
 
         bool _blindZoneAssumed = false;  // logged once per episode
 

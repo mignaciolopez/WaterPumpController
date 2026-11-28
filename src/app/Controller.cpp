@@ -188,7 +188,33 @@ namespace CE::App
     {
         LogXkcChanges();
         _tank.Update();
+        LogCooldown();
         PublishChanges();
+    }
+
+    void Controller::LogCooldown()
+    {
+        const PumpState& pump = _pump.State();
+        if (!pump.isOnCooldown || !_clock.IsSynced())
+        {
+            _cooldownLogged = false;   // the next cooldown is announced right away
+            return;
+        }
+
+        const int64_t now = _clock.NowS();
+        if (_cooldownLogged && now - _lastCooldownLogAt < kCooldownLogIntervalS) return;
+
+        const int64_t endsAt = pump.timeStampCooldown + static_cast<int64_t>(_settings.pumpCooldownTimeM) * 60;
+        const int64_t secondsLeft = endsAt - now;
+        if (secondsLeft <= 0) return;   // the pump logic clears the cooldown on its next update
+
+        _cooldownLogged = true;
+        _lastCooldownLogAt = now;
+
+        char message[64];
+        std::snprintf(message, sizeof(message), "Pump on cooldown: %lld min left",
+                      static_cast<long long>((secondsLeft + 59) / 60));   // rounded up: 1 until the last second
+        _log.Log(LogLevel::Info, "PumpController", message);
     }
 
     void Controller::LogXkcChanges()

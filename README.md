@@ -265,6 +265,7 @@ At 115200 baud. Tags tell you where a line comes from:
                                               every 10 s: median distance, level, last 15 medians
 [PumpController] Pump ON / Pump OFF           every pump change
 [PumpController] Fault: clock not synced      pump held off; clears by itself
+[PumpController] Pump on cooldown: 37 min left   while on cooldown: when it starts, then every 10 s
 [REST] POST /api/v1/pump from 192.168.100.3 body: {"on":true}
 [REST] POST /api/v1/pump -> 200 {"ok":true}   every REST call, when it arrives and how it was answered
 [WS] Client #54 connected from 192.168.100.3  WebSocket clients, commands and answers
@@ -281,7 +282,7 @@ reduce the noise.
 | Pump never starts, `fault: "noTime"` | The clock has not synced. Wait about 30 s; check the board has internet access to `pool.ntp.org` |
 | `fault: "sensorInconsistent"` | High sensor is wet while the low one is dry: the two are swapped or one is faulty. Check wiring (low = GPIO 26, high = GPIO 27) and sensor heights |
 | `POST /api/v1/pump` answers `HIGH_LEVEL` | The high sensor reports water: the tank is full |
-| ... answers `PUMP_COOLDOWN` | The pump ran too long; wait for the cooldown (`pumpCooldownTimeM`) |
+| ... answers `PUMP_COOLDOWN` | The pump ran too long; wait for the cooldown (`pumpCooldownTimeM`). The log shows `Pump on cooldown: N min left` every 10 s |
 | ... answers `PUMP_TOO_SOON` | Stop/start requested too soon after the last change; wait `pumpMinRunS` / `pumpMinRestartS` seconds |
 | Level shows `null` | Not enough valid distance readings yet (needs `medianWindow` readings), or the sensor is not wired / out of range (3-450 cm), or the sensor goes silent after an ordinary reading. When the water rises into the blind zone (closer than 3 cm), the level should read `heightCm - 3` instead (see the blind zone note above); the log then says `No echo right after a reading near the minimum range` |
 | Pump starts at night although night mode is on | Night mode only blocks **automatic** starts above `criticalLevelCm`, and uses your `utcOffsetMinutes`. Check the offset |

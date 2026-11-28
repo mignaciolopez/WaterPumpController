@@ -230,6 +230,102 @@ namespace
         EXPECT_GE(controller.LevelCm(), 130.0f);
     }
 
+    // ---- cooldown log
+
+    static std::vector<std::string> CooldownLogs(const Fakes::FakeLog& log)
+    {
+        std::vector<std::string> out;
+        for (const auto& e : log.entries)
+            if (e.message.rfind("Pump on cooldown", 0) == 0) out.push_back(e.message);
+        return out;
+    }
+
+    // Starts the pump, lets it run its maximum time (20 min) and leaves it on cooldown (60 min) as of "now".
+    void RunIntoCooldown(Fakes::FakeFloat& low, Fakes::FakeClock& clock, App::Controller& controller)
+    {
+        low.wet = false;
+        controller.Update();                // the pump starts
+        clock.Advance(20 * 60);
+        controller.Update();                // max on-time reached: stop + cooldown
+    }
+
+    TEST_F(ControllerTest, NothingIsLoggedAboutCooldownWhenThePumpIsNotOnCooldown)
+    {
+        controller.Update();
+        clock.Advance(60);
+        controller.Update();
+
+        EXPECT_TRUE(CooldownLogs(log).empty());
+    }
+
+    TEST_F(ControllerTest, TheCooldownIsLoggedRightAwayWithTheMinutesLeft)
+    {
+        RunIntoCooldown(low, clock, controller);
+
+        const auto logs = CooldownLogs(log);
+        ASSERT_EQ(logs.size(), 1u);
+        EXPECT_EQ(logs[0], "Pump on cooldown: 60 min left");
+    }
+
+    TEST_F(ControllerTest, TheCooldownIsLoggedEveryTenSecondsNotMoreOften)
+    {
+        RunIntoCooldown(low, clock, controller);
+        ASSERT_EQ(CooldownLogs(log).size(), 1u);
+
+        clock.Advance(9);
+        controller.Update();
+        EXPECT_EQ(CooldownLogs(log).size(), 1u);    // 9 s: still quiet
+
+        clock.Advance(1);
+        controller.Update();
+        EXPECT_EQ(CooldownLogs(log).size(), 2u);    // 10 s: logged again
+
+        controller.Update();
+        controller.Update();
+        EXPECT_EQ(CooldownLogs(log).size(), 2u);    // same second: no repeat
+    }
+
+    TEST_F(ControllerTest, TheMinutesLeftCountDownAndAreRoundedUp)
+    {
+        RunIntoCooldown(low, clock, controller);
+
+        clock.Advance(10 * 60);
+        controller.Update();
+        clock.Advance(49 * 60 + 30);                // 59 min 30 s after the start: 30 s left
+        controller.Update();
+
+        const auto logs = CooldownLogs(log);
+        ASSERT_EQ(logs.size(), 3u);
+        EXPECT_EQ(logs[1], "Pump on cooldown: 50 min left");
+        EXPECT_EQ(logs[2], "Pump on cooldown: 1 min left");
+    }
+
+    TEST_F(ControllerTest, TheCooldownLogStopsWhenTheCooldownEnds)
+    {
+        RunIntoCooldown(low, clock, controller);
+
+        clock.Advance(60 * 60);                     // the cooldown is over
+        controller.Update();
+        const size_t before = CooldownLogs(log).size();
+        clock.Advance(30);
+        controller.Update();
+
+        EXPECT_EQ(CooldownLogs(log).size(), before);
+    }
+
+    TEST_F(ControllerTest, ANewCooldownIsAnnouncedRightAway)
+    {
+        RunIntoCooldown(low, clock, controller);
+        clock.Advance(60 * 60);                     // first cooldown over (the pump restarts, the low sensor is dry)
+        controller.Update();
+        clock.Advance(20 * 60);
+        controller.Update();                        // runs its maximum time again: second cooldown
+
+        const auto logs = CooldownLogs(log);
+        ASSERT_GE(logs.size(), 2u);
+        EXPECT_EQ(logs.back(), "Pump on cooldown: 60 min left");
+    }
+
     // ---- Execute (REST) and Revision
 
     TEST_F(ControllerTest, ExecuteReturnsTheOutcomeAndSendsNoResponse)

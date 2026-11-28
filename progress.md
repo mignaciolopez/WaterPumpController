@@ -145,6 +145,12 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - `IDistanceSensor::Read()` returns a `DistanceReading` (status, cm, inferred) and `MinDistanceCm()`.
 - Not done: shortening `pulseIn`'s 1 s default timeout (each silent reading blocks the sensor task for 1 s).
 
+### Cooldown log (done; unit tested)
+- While the pump is on cooldown the Controller logs `Pump on cooldown: N min left` (tag `PumpController`, Info) when
+  the cooldown starts and then every 10 s (`kCooldownLogIntervalS`), minutes rounded up (1 until the last second).
+  Needs a synced clock; stops by itself when the cooldown ends. Also works after a reboot during a cooldown (the
+  state is restored from flash).
+
 ### Sensor logging (done)
 - `XKC_Y23` (tag `XKC_Y23`, Info): logs the initial state of the Low and High sensors, then every change
   ("Low: water detected" / "Low: no water", same for High)
