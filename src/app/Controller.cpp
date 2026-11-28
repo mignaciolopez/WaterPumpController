@@ -97,6 +97,7 @@ namespace CE::App
     void Controller::OnCommand(const uint32_t clientId, const Command& command)
     {
         const CommandOutcome outcome = _handler.Handle(command);
+        LogFailure(outcome);
 
         if (outcome.error != ErrorCode::None)
         {
@@ -125,8 +126,15 @@ namespace CE::App
     CommandOutcome Controller::Execute(const Command& command)
     {
         const CommandOutcome outcome = _handler.Handle(command);
+        LogFailure(outcome);
         Announce(outcome);
         return outcome;
+    }
+
+    void Controller::LogFailure(const CommandOutcome& outcome)
+    {
+        if (outcome.error == ErrorCode::Internal)
+            _log.Log(LogLevel::Error, "Controller", "Command failed: the settings could not be saved");
     }
 
     void Controller::Announce(const CommandOutcome& outcome)

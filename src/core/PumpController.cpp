@@ -184,7 +184,8 @@ namespace CE::Core
                         _store.SetI64(kKeyCooldown, _state.isOnCooldown ? 1 : 0) &&
                         _store.SetI64(kKeyOn, _state.timeStampOn) &&
                         _store.SetI64(kKeyOff, _state.timeStampOff) &&
-                        _store.SetI64(kKeyCdAt, _state.timeStampCooldown);
+                        _store.SetI64(kKeyCdAt, _state.timeStampCooldown) &&
+                        _store.Commit();
 
         if (!ok) _log.Log(LogLevel::Error, kTag, "Failed to persist state");
     }

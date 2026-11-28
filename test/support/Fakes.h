@@ -51,7 +51,9 @@ namespace CE::Fakes
     {
     public:
         std::map<std::string, int64_t> values;
-        bool failWrites = false;
+        bool failWrites = false;     // SetI64 fails
+        bool failCommits = false;    // Commit fails
+        int commitCount = 0;
 
         bool GetI64(const char* key, int64_t& value) const override
         {
@@ -66,6 +68,12 @@ namespace CE::Fakes
             if (failWrites) return false;
             values[key] = value;
             return true;
+        }
+
+        bool Commit() override
+        {
+            ++commitCount;
+            return !failWrites && !failCommits;
         }
     };
 

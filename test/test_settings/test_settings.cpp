@@ -137,6 +137,23 @@ TEST(SettingsTest, LoadIgnoresStoredDataThatIsInconsistent)
     EXPECT_EQ(s.minLevelCm, 50);
 }
 
+TEST(SettingsTest, SavingSettingsCommitsOnce)
+{
+    Fakes::FakeStore store;
+
+    ASSERT_TRUE(SaveSettings(store, Settings{}));
+
+    EXPECT_EQ(store.commitCount, 1);   // one flash write for all the settings, not one per setting
+}
+
+TEST(SettingsTest, SaveReportsACommitFailure)
+{
+    Fakes::FakeStore store;
+    store.failCommits = true;
+
+    EXPECT_FALSE(SaveSettings(store, Settings{}));
+}
+
 TEST(SettingsTest, SaveReportsStoreFailure)
 {
     Fakes::FakeStore store;

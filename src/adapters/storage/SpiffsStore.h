@@ -11,7 +11,9 @@
 namespace CE::Adapters
 {
     /// IStore on SPIFFS: all values live in memory and in one small JSON file (/store.json).
-    /// A value is written to flash only when it changes. Safe to call from several tasks.
+    /// SetI64 only stages a value in memory; Commit() writes the file once, and only if something changed.
+    /// (Writing the file takes a while on SPIFFS, so it must not happen once per key.)
+    /// Safe to call from several tasks.
     class SpiffsStore final : public Core::IStore
     {
     public:
@@ -27,6 +29,7 @@ namespace CE::Adapters
 
         bool GetI64(const char* key, int64_t& value) const override;
         bool SetI64(const char* key, int64_t value) override;
+        bool Commit() override;
 
     private:
         bool Flush();  // caller holds the lock
@@ -35,6 +38,7 @@ namespace CE::Adapters
         static constexpr const char* kTempFile = "/store.tmp";
 
         mutable SemaphoreHandle_t _mutex;
-        std::map<std::string, int64_t> _values;
+        std::map<std::string, int64_t> _values;     // what readers see (includes staged values)
+        std::map<std::string, int64_t> _committed;  // what is in the file
     };
 }

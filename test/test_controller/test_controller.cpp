@@ -386,6 +386,19 @@ namespace
         EXPECT_TRUE(announced);
     }
 
+    TEST_F(ControllerTest, AFailedSaveIsLoggedAndAnswered)
+    {
+        store.failCommits = true;
+
+        controller.OnCommand(1, SetSetting("pumpMaxTimeOnM", 30, 5));
+
+        EXPECT_EQ(sink.sent[0].message, R"({"id":5,"ok":false,"err":"INTERNAL"})");
+        bool logged = false;
+        for (const auto& e : log.entries)
+            logged = logged || (e.tag == "Controller" && e.message == "Command failed: the settings could not be saved");
+        EXPECT_TRUE(logged);
+    }
+
     TEST_F(ControllerTest, InvalidSettingIsRefusedWithoutBroadcast)
     {
         controller.OnCommand(1, SetSetting("medianWindow", 99, 6));

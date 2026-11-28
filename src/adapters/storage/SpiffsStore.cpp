@@ -36,6 +36,7 @@ namespace CE::Adapters
 
         Lock lock(_mutex);
         _values.clear();
+        _committed.clear();
 
         File file = SPIFFS.open(kFile, "r");
         if (!file) return true;  // first boot
@@ -49,6 +50,7 @@ namespace CE::Adapters
         {
             if (pair.value().is<long long>()) _values[pair.key().c_str()] = pair.value().as<long long>();
         }
+        _committed = _values;
         return true;
     }
 
@@ -67,17 +69,23 @@ namespace CE::Adapters
     {
         Lock lock(_mutex);
 
-        const auto it = _values.find(key);
-        if (it != _values.end() && it->second == value) return true;  // unchanged: no flash write
+        _values[key] = value;  // staged; Commit() writes it
+        return true;
+    }
 
-        const bool existed = it != _values.end();
-        const int64_t previous = existed ? it->second : 0;
-        _values[key] = value;
+    bool SpiffsStore::Commit()
+    {
+        Lock lock(_mutex);
 
-        if (Flush()) return true;
+        if (_values == _committed) return true;  // nothing changed: no flash write
 
-        if (existed) _values[key] = previous;
-        else _values.erase(key);
+        if (Flush())
+        {
+            _committed = _values;
+            return true;
+        }
+
+        _values = _committed;  // could not be saved: drop the staged values
         return false;
     }
 

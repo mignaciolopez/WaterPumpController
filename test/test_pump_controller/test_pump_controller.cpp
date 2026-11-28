@@ -286,6 +286,29 @@ namespace
         EXPECT_FALSE(empty.values.empty());
     }
 
+    TEST_F(PumpControllerTest, EachStateChangeIsCommittedOnce)
+    {
+        NeedWater();
+        const int before = store.commitCount;
+
+        pump.Update();   // the pump starts
+
+        EXPECT_EQ(store.commitCount, before + 1);
+    }
+
+    TEST_F(PumpControllerTest, CommitFailureIsLoggedButPumpStillWorks)
+    {
+        store.failCommits = true;
+        NeedWater();
+
+        pump.Update();
+
+        EXPECT_TRUE(relay.on);
+        bool logged = false;
+        for (const auto& m : log.messages) logged = logged || m == "Failed to persist state";
+        EXPECT_TRUE(logged);
+    }
+
     TEST_F(PumpControllerTest, StoreWriteFailureIsLoggedButPumpStillWorks)
     {
         store.failWrites = true;

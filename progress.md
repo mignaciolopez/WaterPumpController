@@ -78,6 +78,15 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
   check that `.pio/libdeps/<env>` has a single `AsyncTCP-esphome`.
 - Also: unknown paths now answer 404 (the library answers 500 unless a not-found handler is set).
 
+### PUT /api/v1/settings answered INTERNAL (fixed, to confirm on the board)
+- Symptom: `PUT {"minLevelCm":60}` -> `500 {"ok":false,"err":"INTERNAL"}`; the pump `POST` worked.
+- Likely cause: `SpiffsStore` rewrote its file (write temp file, delete, rename) once per key, so the first save of the
+  16 settings was 16 slow SPIFFS rewrites. That can exceed the 2 s REST wait, or a write failed. Nothing logged which.
+- Fix: `IStore` now has `Commit()`: `SetI64` only stages values and `Commit()` writes the file once (and only if
+  something changed). `SaveSettings` and the pump state commit once. A failed save is now logged
+  ("Command failed: the settings could not be saved", tag `Controller`).
+- If it still answers INTERNAL after reflashing, the serial log shows the SPIFFS error (CORE_DEBUG_LEVEL is 5).
+
 ### Sensor logging (done)
 - `XKC_Y23` (tag `XKC_Y23`, Info): logs the initial state of the Low and High sensors, then every change
   ("Low: water detected" / "Low: no water", same for High)

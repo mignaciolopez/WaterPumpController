@@ -125,6 +125,16 @@ namespace
         EXPECT_EQ(handler.Handle(SettingsCommand({{"minLevelCm", 130}})).error, ErrorCode::InvalidValue);
     }
 
+    TEST_F(CommandHandlerTest, SettingsAreRolledBackWhenTheCommitFails)
+    {
+        settingsStore.failCommits = true;
+
+        const auto outcome = handler.Handle(SettingsCommand({{"pumpMaxTimeOnM", 30}}));
+
+        EXPECT_EQ(outcome.error, ErrorCode::Internal);
+        EXPECT_EQ(settings.pumpMaxTimeOnM, 20);
+    }
+
     TEST_F(CommandHandlerTest, SettingsAreRolledBackWhenTheyCannotBeSaved)
     {
         settingsStore.failWrites = true;

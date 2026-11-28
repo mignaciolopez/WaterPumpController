@@ -64,6 +64,7 @@ namespace CE::App
         void RecordMedian(float distanceCm);
         void LogMedian(int64_t now);
         void Announce(const Core::CommandOutcome& outcome);
+        void LogFailure(const Core::CommandOutcome& outcome);
 
         Core::Settings _settings;
         Core::IMessageSink& _sink;

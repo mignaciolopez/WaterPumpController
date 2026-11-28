@@ -108,7 +108,7 @@ namespace CE::Core
                 ok = false;
         }
 
-        return ok;
+        return ok && store.Commit();
     }
 
     void LoadSettings(const IStore& store, Settings& settings)
