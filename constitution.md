@@ -5,52 +5,65 @@ This document is the source of truth for architecture and rules. Changes to it n
 
 ## Tech Stack
 - **Target:** ESP32 (`esp-wrover-kit` first; any ESP32 with FreeRTOS via a device profile)
-- **Build:** PlatformIO with the **pioarduino** platform (Arduino core 3.x, ESP-IDF 5.x, GCC 14), Arduino framework.
-  Language standard: **C++23** (`-std=gnu++23`), the latest the toolchain supports. The official `espressif32@6.x` platform is capped at C++17 and is not used.
-  If a required library cannot build on core 3.x, ask before falling back to a lower standard.
-- **Test:** PlatformIO `native` env + GoogleTest (runs on the PC, no hardware). Unity is not used. Native env also builds with `-std=gnu++23`.
-- **Libraries:** ArduinoJson, ESPAsyncWebServer-esphome, AsyncTCP-esphome, ESP32Ping (watchdog rule).
+- **Build:** PlatformIO, official `espressif32` platform (Arduino core 2.x, GCC 8.4), Arduino framework.
+  Language standard: **C++17** (`-std=gnu++17`), the same for the ESP32 build and the native tests.
+  Moving to a newer standard requires switching platform (pioarduino) and needs approval.
+- **Test:** PlatformIO `native` env + GoogleTest (runs on the PC, no hardware). Unity is not used.
+- **Libraries:** ArduinoJson, ESP32Ping (watchdog rule). The HTTP server is the `esp_http_server` that ships with the ESP32
+  core (REST and WebSocket); ESPAsyncWebServer and AsyncTCP were removed because they corrupted the heap when connections closed.
   DHT / Adafruit Unified Sensor stay for the future weather adapter only.
-  Removed: WiFiManager, NewPing (unless the HC-SR04 driver is kept).
+  Removed: WiFiManager, NewPing (the old HC-SR04 driver is gone; A02YYUW_PWM/A02YYUW_UART replace it).
 - **Storage:** SPIFFS, behind the `IStore` port
 - **Time:** SNTP (ESP-IDF), behind the `IClock` port
 - **Supported pin profile:** ESP32 only. The ESP32-C3 profile is dropped.
+- **Time zone:** the `utcOffsetMinutes` setting (local = UTC + offset, no daylight saving).
 
 ## Architecture Principles
 Ports and adapters (hexagonal) with an event bus.
 
 ```
 src/
-  core/            Pure C++23. NO Arduino, ESP-IDF, FreeRTOS or ArduinoJson includes.
-    ports/           ILevelSensor, IFloatSwitch, ISwitch, IClock, IStore, IEventBus, ILog
+  core/            Pure C++17. NO Arduino, ESP-IDF, FreeRTOS or ArduinoJson includes.
+    ports/           IDistanceSensor, IFloatSwitch, ISwitch, IClock, IStore, ILog, INetwork, IRestarter
     PumpController   state machine: Idle -> Running -> Cooldown -> Fault
     LevelFilter      median filter
     Tank             one sensor + one pump + rules; repeatable unit
     rules/           Rule interface + rules (level, max on-time, night mode, network watchdog)
     Settings         field table (name, ptr, min, max, default); drives validation and (de)serialization
   adapters/        Implement the ports. May use Arduino/ESP-IDF.
-    sensors/         A02YYUW, XKC_Y23, HC-SR04 (optional), DHT (future)
+    sensors/         A02YYUW_PWM, A02YYUW_UART (+ frame parser), XKC_Y23, DHT (future)
     actuators/       Relay
     storage/         SpiffsStore
     platform/        SntpClock, FreeRtosScheduler, WiFi/Network, Ping
-    net/             WebSocketServer (later: MQTT, REST)
-    codec/           Versioned JSON protocol (the only place that knows the wire format)
-  app/             Composition root. Builds objects and wires them. No singletons.
-    main.cpp
-    profiles/        Per-device config: pins, tanks, enabled interfaces
+    net/             HttpServer (esp_http_server), WebSocketServer (/ws/v1), RestApi (/api/v1), shared CommandQueue and SnapshotCache (later: MQTT)
+    codec/           Wire formats: CodecV1 (WebSocket), RestCodec (REST), CodecCommon (shared JSON shapes)
+  app/             Composition root and application logic.
+    Controller       wires core pieces, turns commands/state changes into protocol messages (testable)
+    Firmware         builds the adapters, owns the tasks (control, sensor, network)
+    Profile          per-device pins, distance sensor type (A02YYUW_PWM or A02YYUW_UART), credentials, network setup
+    profiles/        one header per device (EspWroverKit.h); pins are commented with the sensor they belong to
+                     (XKC_Y23 Low / High, A02YYUW RX / TX)
+    (main.cpp creates Firmware with a profile)
 test/              Native tests for core/ and codec/
 docs/protocol.md   Wire protocol specification
 ```
 
 Rules of the dependency direction:
 - `core` depends on nothing outside `core`. `adapters` depend on `core`. `app` depends on both.
-- Interfaces (WebSocket, MQTT, ...) never call services directly. They send **commands** and subscribe to **events** on the bus.
+- Interfaces (WebSocket, REST, MQTT, ...) never call services directly. They send **commands** and subscribe to **events** on the bus.
 - Hardware, time, storage and logging are reached only through ports, so `core` can be tested with fakes.
 - No global or singleton objects. Dependencies are passed through constructors.
 - Task model: one sampling task (sensors) and one control task (rules, pump), connected by a queue.
   Shared state is owned by one task; other tasks send messages instead of sharing mutable data.
 - Adding a sensor, actuator, interface, rule or tank must not require editing `core` logic
   (a new rule or port implementation is the extension point).
+
+## REST interface
+Specified in `docs/rest-api.md` (`/api/v1/state`, `/api/v1/settings`, `/api/v1/pump`). It uses the same commands,
+data shapes and error codes as the WebSocket protocol. Reads come from a cache refreshed by the control task;
+writes go through the same command queue and wait for the control task's result. There is no authentication
+(a decision of the project owner): the device must stay on a trusted network. Write requests require
+`Content-Type: application/json` and the device sends no CORS headers.
 
 ## Protocol (versioned JSON)
 Full specification lives in `docs/protocol.md`.
@@ -90,6 +103,7 @@ Full specification lives in `docs/protocol.md`.
 - Before changing this constitution
 
 ### NEVER DO:
+- Never touch a network socket from more than one task: hand work to the HTTP server task (`httpd_queue_work`)
 - Never include Arduino, ESP-IDF, FreeRTOS or ArduinoJson headers in `core/`
 - Never use singletons or mutable globals
 - Never hardcode secrets (WiFi credentials, tokens); use `secrets.h` (git-ignored) or provisioning
@@ -102,6 +116,7 @@ Full specification lives in `docs/protocol.md`.
 - Namespace: `CE` (adapters in `CE::Adapters`, core in `CE::Core`)
 - Types and methods: `PascalCase`; private members: `_camelCase`; constants: `kPascalCase`
 - Interfaces start with `I` (`ISwitch`)
+- Hardware adapters keep the name of the device they drive (`XKC_Y23`, `A02YYUW_PWM`, `A02YYUW_UART`)
 - Header guards: `#pragma once`; headers `.h` for classes, `.hpp` for header-only
 - Max function length: 50 lines; max file length: 300 lines
 - Prefer `constexpr`, `enum class`, `std::function`/interfaces over macros
@@ -111,8 +126,8 @@ Full specification lives in `docs/protocol.md`.
 ## Error Handling Standards
 - `core` returns explicit results (`bool` or a small `Result`/error-code enum); exceptions are not used
 - Protocol errors use the `err` field of the response with a stable code:
-  `BAD_REQUEST`, `UNKNOWN_COMMAND`, `INVALID_VALUE`,
-  `PUMP_COOLDOWN`, `PUMP_TOO_SOON`, `HIGH_LEVEL`, `SENSOR_FAULT`, `INTERNAL`
+  `BAD_REQUEST`, `UNKNOWN_COMMAND`, `UNKNOWN_FIELD`, `INVALID_VALUE`,
+  `PUMP_COOLDOWN`, `PUMP_TOO_SOON`, `HIGH_LEVEL`, `PUMP_FAULT`, `INTERNAL`
 - Every error is logged once, at the layer that handles it
 - A failed `Setup()` of a non-critical adapter (e.g. network) must not stop the pump logic from running safely
 
