@@ -5,6 +5,7 @@
 #include "adapters/net/CommandQueue.h"
 #include "adapters/net/SnapshotCache.h"
 #include "core/Messages.h"
+#include "core/ports/ILog.h"
 
 namespace CE::Adapters
 {
@@ -21,7 +22,7 @@ namespace CE::Adapters
     class RestApi
     {
     public:
-        RestApi(AsyncWebServer& server, CommandQueue& commands, const SnapshotCache& snapshot);
+        RestApi(AsyncWebServer& server, CommandQueue& commands, const SnapshotCache& snapshot, Core::ILog& log);
 
         /// Registers the routes. The caller starts the server.
         void Begin();
@@ -38,10 +39,15 @@ namespace CE::Adapters
         void HandleWrite(AsyncWebServerRequest* request, Decoder decode);
 
         void Submit(AsyncWebServerRequest* request, const Core::Command& command);
-        static void Reply(AsyncWebServerRequest* request, Core::ErrorCode result);
+        void Reply(AsyncWebServerRequest* request, Core::ErrorCode result);
+
+        // Every call is logged (tag "REST"): once when it arrives and once when it is answered.
+        void LogReceived(AsyncWebServerRequest* request, const char* body);
+        void Answer(AsyncWebServerRequest* request, int status, const char* body);
 
         AsyncWebServer& _server;
         CommandQueue& _commands;
         const SnapshotCache& _snapshot;
+        Core::ILog& _log;
     };
 }

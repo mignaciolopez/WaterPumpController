@@ -83,6 +83,17 @@ Unknown paths answer `404` with `{"ok":false,"err":"UNKNOWN_COMMAND"}`.
   WebSocket clients as events.
 - After a successful `POST`/`PUT`, a `GET` already shows the new state.
 
+## Logging
+Every call is logged on the serial console (tag `REST`, Info level): one line when it arrives and one when it
+is answered. Writes also show the request body, and any answer other than a successful read shows the answer body.
+```
+[I][REST] GET /api/v1/state from 192.168.100.5
+[I][REST] GET /api/v1/state -> 200
+[I][REST] POST /api/v1/pump from 192.168.100.5 body: {"on":true}
+[I][REST] POST /api/v1/pump -> 409 {"ok":false,"err":"HIGH_LEVEL"}
+[I][REST] GET /api/v1/nothing -> 404 {"ok":false,"err":"UNKNOWN_COMMAND"}
+```
+
 ## Security
 There is **no authentication**: anyone who can reach the device on the network can read the state and
 control the pump. Run it only on a network you trust, and do not expose port 80 to the internet.

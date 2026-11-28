@@ -87,6 +87,12 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
   ("Command failed: the settings could not be saved", tag `Controller`).
 - If it still answers INTERNAL after reflashing, the serial log shows the SPIFFS error (CORE_DEBUG_LEVEL is 5).
 
+### REST call logging (done)
+- Tag `REST`, Info: "<METHOD> <path> from <client ip>" (writes add the body) when a call arrives, and
+  "<METHOD> <path> -> <status>" when it is answered (writes and errors add the answer body). WebSocket commands are
+  not logged yet.
+- `PUT /api/v1/settings` was confirmed on the board after the batched-store fix (both `PUT`s answered `ok`).
+
 ### Sensor logging (done)
 - `XKC_Y23` (tag `XKC_Y23`, Info): logs the initial state of the Low and High sensors, then every change
   ("Low: water detected" / "Low: no water", same for High)
