@@ -67,7 +67,7 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - Compile-checked only: the REST endpoints have NOT been exercised on the board yet (see the REST checks below)
 - Profile field `webSocketPort` renamed to `httpPort`
 
-### Network stops answering after ~13 connections: leaked sockets (fixed, to confirm on the board)
+### Network stops answering after ~13 connections: leaked sockets (fixed and confirmed on the board)
 - Symptom (first run on the built-in HTTP server): `ws-stress.ps1 -Cycles 100 -Abrupt` stopped after 13 good cycles,
   `rest-stress.ps1` also failed after a while; the board did not reboot and printed no crash. The watchdog logged
   `Network check failed` (its own ping could not get a socket either).
@@ -78,11 +78,13 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
   `libesp_http_server.a`), although the header comment says the server still closes the socket. So every connection leaked.
 - Fix: `HttpServer::OnClose` calls `close(fd)` itself after the handler. Also the client address is printed without the
   `::FFFF:` prefix (the check was case sensitive).
+- CONFIRMED on the board after the fix: `ws-stress.ps1 -Cycles 100 -Abrupt` finished 100 of 100 cycles and
+  `rest-stress.ps1 -Requests 500` answered all 500 as expected; the board stayed alive. Not yet run: both at the same time.
 - Heap was healthy in that run (about 200 KB free, no corruption): the earlier CORRUPT HEAP crashes are gone.
 - Added: the watchdog log says whether the WiFi link is down or the ping failed, and `WiFi.setSleep(false)` (a precaution,
   not proven needed; it can be reverted if you prefer the radio power saving).
 
-### Heap corruption on connection close: moved to the built-in HTTP server (done, to confirm on the board)
+### Heap corruption on connection close: moved to the built-in HTTP server (done and confirmed on the board)
 - Symptom: `CORRUPT HEAP: Bad head ... multi_heap_free`, then reboot, within ~15 WebSocket connect/disconnect cycles.
   The decoded backtrace always ended in lwIP `tcp_close` called by AsyncTCP (`_tcp_close_api`). The firmware crashed with
   the normal build AND with a build where the WebSocket never sent anything, so my own sends from the control task were
