@@ -22,6 +22,17 @@ param(
 
 $base = "http://$Ip/api/v1"
 
+# Tells the three ways a board can stop answering apart. Call it after a short wait.
+function Show-BoardDiagnosis {
+    Start-Sleep -Seconds 3
+    $pings = Test-Connection -ComputerName $Ip -Count 3 -Quiet -ErrorAction SilentlyContinue
+    if ($pings) {
+        Write-Host 'The board still answers ping, but not HTTP: the web server stopped answering (the board did not reboot).' -ForegroundColor Red
+    } else {
+        Write-Host 'The board does not answer ping either: it crashed and is rebooting, or it lost WiFi. Look for CORRUPT HEAP, Guru Meditation or STA_DISCONNECTED on the serial console.' -ForegroundColor Red
+    }
+}
+
 function Invoke-Status([string]$method, [string]$path, [string]$body, [string]$contentType) {
     try {
         $params = @{ Uri = "$base$path"; Method = $method; UseBasicParsing = $true; TimeoutSec = 8 }
@@ -59,7 +70,8 @@ for ($i = 1; $i -le $Requests; $i++) {
     if ($status -eq -1) { $noAnswer++ } else { $noAnswer = 0 }
     Write-Host ("request {0,4}/{1}: {2} answered {3}, expected {4}" -f $i, $Requests, $case.Name, $status, $case.Expect) -ForegroundColor Red
     if ($noAnswer -ge 3) {
-        Write-Host 'The board stopped answering: it most likely crashed and rebooted. Check the serial console.' -ForegroundColor Red
+        Write-Host 'The board stopped answering.' -ForegroundColor Red
+        Show-BoardDiagnosis
         exit 2
     }
     if ($status -eq -1) { Start-Sleep -Seconds 2 }
@@ -74,6 +86,7 @@ if ($bad -eq 0 -and $alive) {
 } elseif ($alive) {
     Write-Host "$bad of $Requests requests answered unexpectedly (see above); the board is still alive." -ForegroundColor Yellow
 } else {
-    Write-Host "The board does NOT answer now: check the serial console." -ForegroundColor Red
+    Write-Host "The board does NOT answer now." -ForegroundColor Red
+    Show-BoardDiagnosis
     exit 2
 }

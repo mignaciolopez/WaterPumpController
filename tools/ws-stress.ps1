@@ -30,6 +30,17 @@ $done = 0
 $failuresInARow = 0
 $crashed = $false
 
+# Tells the three ways a board can stop answering apart. Call it after a short wait.
+function Show-BoardDiagnosis {
+    Start-Sleep -Seconds 3
+    $pings = Test-Connection -ComputerName $Ip -Count 3 -Quiet -ErrorAction SilentlyContinue
+    if ($pings) {
+        Write-Host 'The board still answers ping, but not HTTP: the web server stopped answering (the board did not reboot).' -ForegroundColor Red
+    } else {
+        Write-Host 'The board does not answer ping either: it crashed and is rebooting, or it lost WiFi. Look for CORRUPT HEAP, Guru Meditation or STA_DISCONNECTED on the serial console.' -ForegroundColor Red
+    }
+}
+
 function Test-Board {
     try { Invoke-RestMethod -Uri "http://$Ip/api/v1/state" -TimeoutSec 5 | Out-Null; return $true } catch { return $false }
 }
@@ -79,12 +90,14 @@ for ($i = 1; $i -le $Cycles; $i++) {
 
 Write-Host ''
 if ($crashed) {
-    Write-Host "The board stopped answering after $done good cycles: it most likely crashed and rebooted. Check the serial console." -ForegroundColor Red
+    Write-Host "The board stopped answering after $done good cycles." -ForegroundColor Red
+    Show-BoardDiagnosis
     exit 2
 }
 if (Test-Board) {
     Write-Host "Finished $done of $Cycles cycles and the board still answers." -ForegroundColor Green
 } else {
-    Write-Host "Finished $done of $Cycles cycles but the board does NOT answer now: check the serial console." -ForegroundColor Red
+    Write-Host "Finished $done of $Cycles cycles but the board does NOT answer now." -ForegroundColor Red
+    Show-BoardDiagnosis
     exit 2
 }
