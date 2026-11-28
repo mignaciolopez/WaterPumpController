@@ -38,12 +38,14 @@ namespace CE::Adapters::RestCodec
         return Codec::ReadSettingsSet(doc, command);
     }
 
-    std::string EncodeState(const PumpState& pump, const bool levelValid, const float levelCm, const SensorRange& sensor)
+    std::string EncodeState(const PumpState& pump, const bool levelValid, const float levelCm, const SensorRange& sensor,
+                            const WeatherSample* weather)
     {
         JsonDocument doc;
         Codec::FillPump(doc["pump"].to<JsonObject>(), pump);
         Codec::FillLevel(doc["level"].to<JsonObject>(), levelValid, levelCm);
         if (sensor.IsKnown()) Codec::FillSensor(doc["sensor"].to<JsonObject>(), sensor);
+        if (weather != nullptr) Codec::FillWeather(doc["weather"].to<JsonObject>(), *weather);
         return Serialize(doc);
     }
 

@@ -5,6 +5,7 @@
 #include <string>
 
 #include "core/Messages.h"
+#include "core/ports/IWeatherSensor.h"
 
 /// Protocol v1 (WebSocket path /ws/v1). See docs/protocol.md.
 /// The version is part of the endpoint, so messages carry no version field.
@@ -27,12 +28,14 @@ namespace CE::Adapters::CodecV1
     // Responses (one per command)
     std::string EncodeOk(int32_t id);
     std::string EncodeError(int32_t id, Core::ErrorCode code);
+    /// `weather` is left out of the answer when it is null (the device has no weather sensor).
     std::string EncodeStateResponse(int32_t id, const Core::PumpState& pump, bool levelValid, float levelCm,
-                                    const Core::SensorRange& sensor = {});
+                                    const Core::SensorRange& sensor = {}, const Core::WeatherSample* weather = nullptr);
     std::string EncodeSettingsResponse(int32_t id, const Core::Settings& settings);
 
     // Events (pushed to clients)
     std::string EncodePumpStateEvent(const Core::PumpState& pump);
     std::string EncodeTankLevelEvent(bool levelValid, float levelCm);
+    std::string EncodeTankWeatherEvent(const Core::WeatherSample& weather);
     std::string EncodeSettingsChangedEvent(const Core::Settings& settings);
 }

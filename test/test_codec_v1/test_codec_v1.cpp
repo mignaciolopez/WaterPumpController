@@ -136,7 +136,7 @@ TEST(CodecV1DecodeTest, SettingsSetRejectsOverlongNamesAndTooManyValues)
               ErrorCode::UnknownField);
 
     std::string many = R"({"cmd":"settings.set","id":1,"data":{)";
-    for (int i = 0; i < 17; ++i) many += (i ? "," : "") + std::string("\"f") + std::to_string(i) + "\":1";
+    for (int i = 0; i < static_cast<int>(Command::kMaxSettingValues) + 1; ++i) many += (i ? "," : "") + std::string("\"f") + std::to_string(i) + "\":1";
     many += "}}";
     EXPECT_EQ(Decode(many).error, ErrorCode::BadRequest);
 }
@@ -251,6 +251,41 @@ TEST(CodecV1EncodeTest, StateResponseLeavesTheSensorOutWhenTheRangeIsUnknown)
 
     EXPECT_TRUE(doc["data"]["sensor"].isNull());
     EXPECT_FALSE(doc["data"]["pump"].isNull());   // the rest is unchanged
+}
+
+TEST(CodecV1EncodeTest, StateResponseCarriesTheWeatherWhenThereIsASensor)
+{
+    const WeatherSample weather = MakeWeatherSample(23.44f, 61.06f, 24.0f);
+
+    const auto doc = Parse(EncodeStateResponse(5, PumpState{}, true, 80.0f, SensorRange{}, &weather));
+
+    EXPECT_NEAR(doc["data"]["weather"]["temperatureC"].as<float>(), 23.4f, 0.001f);
+    EXPECT_NEAR(doc["data"]["weather"]["humidity"].as<float>(), 61.1f, 0.001f);
+    EXPECT_NEAR(doc["data"]["weather"]["heatIndexC"].as<float>(), 24.0f, 0.001f);
+}
+
+TEST(CodecV1EncodeTest, StateResponseHasNullWeatherValuesWhileTheReadingIsUnknown)
+{
+    const WeatherSample unknown;
+
+    const auto doc = Parse(EncodeStateResponse(5, PumpState{}, true, 80.0f, SensorRange{}, &unknown));
+
+    ASSERT_FALSE(doc["data"]["weather"].isNull());
+    EXPECT_TRUE(doc["data"]["weather"]["temperatureC"].isNull());
+    EXPECT_TRUE(doc["data"]["weather"]["humidity"].isNull());
+}
+
+TEST(CodecV1EncodeTest, StateResponseLeavesWeatherOutWithoutASensor)
+{
+    EXPECT_TRUE(Parse(EncodeStateResponse(5, PumpState{}, true, 80.0f))["data"]["weather"].isNull());
+}
+
+TEST(CodecV1EncodeTest, TankWeatherEvent)
+{
+    const auto doc = Parse(EncodeTankWeatherEvent(MakeWeatherSample(20.0f, 50.0f, 20.0f)));
+
+    EXPECT_STREQ(doc["event"], "tank.weather");
+    EXPECT_FLOAT_EQ(doc["data"]["humidity"].as<float>(), 50.0f);
 }
 
 TEST(CodecV1EncodeTest, SettingsResponseAndEventContainEveryField)

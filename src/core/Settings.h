@@ -22,6 +22,7 @@ namespace CE::Core
         // Sampling
         int32_t radarDelayS              = 1;    // delay between distance measurements
         int32_t medianWindow             = 5;    // samples used for the median (1..15)
+        int32_t weatherDelayS            = 30;   // seconds between temperature/humidity readings
 
         // Pump
         int32_t pumpMinRunS              = 10;   // minimum time ON before a stop is accepted

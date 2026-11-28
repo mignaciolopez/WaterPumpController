@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <optional>
 
 #include "adapters/actuators/RelaySwitch.h"
 #include "adapters/net/CommandQueue.h"
@@ -18,6 +19,7 @@
 #include "adapters/platform/WifiNetwork.h"
 #include "adapters/sensors/A02YYUW_PWM.h"
 #include "adapters/sensors/A02YYUW_UART.h"
+#include "adapters/sensors/DHTDevice.h"
 #include "adapters/sensors/XKC_Y23.h"
 #include "adapters/storage/SpiffsStore.h"
 #include "app/Controller.h"
@@ -70,6 +72,10 @@ namespace CE::App
         Adapters::A02YYUW_PWM _distancePwm;
         Adapters::A02YYUW_UART _distanceUart;
         Core::IDistanceSensor& _distanceSensor;
+
+        // Optional: only built when the profile has a weather sensor.
+        std::optional<Adapters::DHTDevice> _dht;
+        Core::IWeatherSensor* _weatherSensor = nullptr;
         Adapters::SntpClock _clock;
         Adapters::WifiNetwork _wifi;
         Adapters::EspRestarter _restarter;
@@ -83,10 +89,12 @@ namespace CE::App
         Core::NetworkWatchdog _watchdog;
 
         QueueHandle_t _samples = nullptr;
+        QueueHandle_t _weatherSamples = nullptr;
         uint32_t _snapshotRevision = UINT32_MAX;  // revision the snapshot was built from
 
         // Copies of settings other tasks need; written by the control task only.
         std::atomic<uint32_t> _sensorDelayMs{1000};
+        std::atomic<uint32_t> _weatherDelayMs{30000};
         std::atomic<uint32_t> _networkDelayMs{60000};
         std::atomic<uint16_t> _maxReconnects{10};
     };

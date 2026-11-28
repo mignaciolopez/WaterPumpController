@@ -13,6 +13,7 @@
 #include "core/ports/ILog.h"
 #include "core/ports/IMessageSink.h"
 #include "core/ports/IStore.h"
+#include "core/ports/IWeatherSensor.h"
 #include "core/ports/ISwitch.h"
 #include "core/rules/Rules.h"
 
@@ -71,6 +72,18 @@ namespace CE::App
 
         void OnDistance(const DistanceSample& sample);
 
+        /// A temperature/humidity reading from the weather sensor (valid or not).
+        void OnWeather(const Core::WeatherSample& sample);
+
+        /// Whether this device has a weather sensor. Without one, no weather is published or reported.
+        void SetWeatherSensorPresent(const bool present)
+        {
+            _hasWeatherSensor = present;
+            ++_revision;
+        }
+        const Core::WeatherSample& GetWeather() const { return _weather; }
+        const Core::WeatherSample* WeatherOrNull() const { return _hasWeatherSensor ? &_weather : nullptr; }
+
         /// Executes a command and answers `clientId` with a WebSocket protocol response.
         void OnCommand(uint32_t clientId, const Core::Command& command);
 
@@ -122,6 +135,14 @@ namespace CE::App
         Core::CommandHandler _handler;
 
         Core::SensorRange _sensorRange;
+
+        // Weather: the last good reading, unknown after kWeatherFailuresBeforeUnknown failed readings in a row.
+        static constexpr uint8_t kWeatherFailuresBeforeUnknown = 3;
+        bool _hasWeatherSensor = false;
+        Core::WeatherSample _weather;
+        uint8_t _weatherFailures = 0;
+        bool _weatherPublished = false;
+        Core::WeatherSample _lastPublishedWeather;
 
         // What clients were last told, to publish only changes.
         bool _published = false;

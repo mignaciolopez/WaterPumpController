@@ -158,6 +158,24 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
 - The values come from the driver (`IDistanceSensor::MinDistanceCm()` / `MaxDistanceCm()`), set once in `Firmware::Begin`.
   They are distances; the level range is `max(0, heightCm - max)` .. `heightCm - min` (documented in `docs/protocol.md`).
 
+### Weather: DHTDevice temperature and humidity (done; unit tested, NOT yet tested on the board)
+- Ported from the reference project `D:\Projects\Arduino.ESP\WaterTank` (`DHTDevice` + `Weather` service): forced reads,
+  heat index, invalid = NaN or humidity < 0. Here: port `IWeatherSensor` + `WeatherSample` (`MakeWeatherSample` validates:
+  NaN, humidity 0..100 %, temperature -40..80 C), adapter `DHTDevice` (Adafruit DHT), no extra task.
+- The sensor task reads it every `weatherDelayS` (new setting, default 30, 2..3600; first read 2 s after start). Profile
+  fields `weatherSensor` (None / Dht11 / Dht22; not named DHT11 because the library defines it as a macro) and `weatherPin`
+  (21 on the WROVER profile, as in the old Pins.hpp). Without a sensor nothing weather-related is published.
+- Controller: `OnWeather` (valid reading logged as `DHTDevice`, invalid as a warning; one or two bad readings keep the
+  last value, three in a row make it unknown), event `tank.weather` (when a 0.1-rounded value changes), `weather` block in
+  the state (REST and `state.get`), values `null` while unknown.
+- Bug found by the tests: a client sending ALL settings back no longer fitted in one command (17 settings, limit 16).
+  `Command::kMaxSettingValues` is now 24 and a test fails when the settings outgrow it.
+- Deliberately NOT ported: the reference also fed the HEAT INDEX into the speed of sound used for distance. The speed of
+  sound depends on air temperature (not the "feels like" heat index). A proper temperature correction of the distance could
+  be added later.
+- To check on the board: wire the DHT data pin to GPIO 21, upload, and look for `[DHTDevice] 23.4 C, 61 % humidity ...`
+  every 30 s, the `weather` block in `GET /api/v1/state` and `tank.weather` events on the WebSocket.
+
 ### Sensor logging (done)
 - `XKC_Y23` (tag `XKC_Y23`, Info): logs the initial state of the Low and High sensors, then every change
   ("Low: water detected" / "Low: no water", same for High)

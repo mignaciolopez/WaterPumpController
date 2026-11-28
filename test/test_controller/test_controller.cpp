@@ -230,6 +230,159 @@ namespace
         EXPECT_GE(controller.LevelCm(), 130.0f);
     }
 
+    // ---- weather (DHT)
+
+    static WeatherSample Good(const float t = 23.4f, const float h = 61.0f, const float hic = 24.0f)
+    {
+        return MakeWeatherSample(t, h, hic);
+    }
+
+    static std::vector<std::string> WeatherEvents(const Fakes::FakeSink& sink)
+    {
+        std::vector<std::string> out;
+        for (const auto& b : sink.broadcasts)
+            if (b.rfind(R"({"event":"tank.weather")", 0) == 0) out.push_back(b);
+        return out;
+    }
+
+    TEST_F(ControllerTest, WithoutAWeatherSensorNothingAboutWeatherIsPublishedOrReported)
+    {
+        controller.OnWeather(Good());
+        controller.Update();
+        controller.OnCommand(5, Cmd(CommandType::StateGet, 1));
+
+        EXPECT_TRUE(WeatherEvents(sink).empty());
+        EXPECT_TRUE(Parse(sink.sent[0].message)["data"]["weather"].isNull());
+    }
+
+    TEST_F(ControllerTest, WithASensorTheFirstUpdatePublishesAnUnknownWeather)
+    {
+        controller.SetWeatherSensorPresent(true);
+
+        controller.Update();
+
+        const auto events = WeatherEvents(sink);
+        ASSERT_EQ(events.size(), 1u);
+        EXPECT_TRUE(Parse(events[0])["data"]["temperatureC"].isNull());
+    }
+
+    TEST_F(ControllerTest, AGoodReadingIsPublishedAndLogged)
+    {
+        controller.SetWeatherSensorPresent(true);
+        controller.Update();
+        sink.broadcasts.clear();
+        log.entries.clear();
+
+        controller.OnWeather(Good());
+        controller.Update();
+
+        const auto events = WeatherEvents(sink);
+        ASSERT_EQ(events.size(), 1u);
+        const auto doc = Parse(events[0]);
+        EXPECT_NEAR(doc["data"]["temperatureC"].as<float>(), 23.4f, 0.001f);
+        EXPECT_NEAR(doc["data"]["humidity"].as<float>(), 61.0f, 0.001f);
+
+        bool logged = false;
+        for (const auto& e : log.entries)
+            logged = logged || (e.tag == "DHTDevice" && e.message == "23.4 C, 61 % humidity (heat index 24.0 C)");
+        EXPECT_TRUE(logged);
+    }
+
+    TEST_F(ControllerTest, AnUnchangedReadingIsNotPublishedAgain)
+    {
+        controller.SetWeatherSensorPresent(true);
+        controller.OnWeather(Good());
+        controller.Update();
+        sink.broadcasts.clear();
+
+        controller.OnWeather(Good());
+        controller.Update();
+        EXPECT_TRUE(WeatherEvents(sink).empty());
+
+        controller.OnWeather(Good(23.6f));
+        controller.Update();
+        EXPECT_EQ(WeatherEvents(sink).size(), 1u);
+    }
+
+    TEST_F(ControllerTest, StateGetCarriesTheWeather)
+    {
+        controller.SetWeatherSensorPresent(true);
+        controller.OnWeather(Good());
+
+        controller.OnCommand(5, Cmd(CommandType::StateGet, 1));
+
+        const auto doc = Parse(sink.sent[0].message);
+        EXPECT_NEAR(doc["data"]["weather"]["temperatureC"].as<float>(), 23.4f, 0.001f);
+    }
+
+    TEST_F(ControllerTest, OneOrTwoBadReadingsKeepTheLastGoodValue)
+    {
+        controller.SetWeatherSensorPresent(true);
+        controller.OnWeather(Good());
+        controller.Update();
+        sink.broadcasts.clear();
+
+        controller.OnWeather(WeatherSample{});
+        controller.OnWeather(WeatherSample{});
+        controller.Update();
+
+        EXPECT_TRUE(controller.GetWeather().valid);
+        EXPECT_TRUE(WeatherEvents(sink).empty());
+    }
+
+    TEST_F(ControllerTest, ThreeBadReadingsInARowMakeTheWeatherUnknown)
+    {
+        controller.SetWeatherSensorPresent(true);
+        controller.OnWeather(Good());
+        controller.Update();
+        sink.broadcasts.clear();
+
+        for (int i = 0; i < 3; ++i) controller.OnWeather(WeatherSample{});
+        controller.Update();
+
+        EXPECT_FALSE(controller.GetWeather().valid);
+        const auto events = WeatherEvents(sink);
+        ASSERT_EQ(events.size(), 1u);
+        EXPECT_TRUE(Parse(events[0])["data"]["humidity"].isNull());
+    }
+
+    TEST_F(ControllerTest, AGoodReadingBetweenBadOnesResetsTheCount)
+    {
+        controller.SetWeatherSensorPresent(true);
+        controller.OnWeather(Good());
+        controller.OnWeather(WeatherSample{});
+        controller.OnWeather(WeatherSample{});
+        controller.OnWeather(Good());
+        controller.OnWeather(WeatherSample{});
+        controller.OnWeather(WeatherSample{});
+
+        EXPECT_TRUE(controller.GetWeather().valid);
+    }
+
+    TEST_F(ControllerTest, ABadReadingIsLoggedAsAWarning)
+    {
+        log.entries.clear();
+
+        controller.OnWeather(WeatherSample{});
+
+        bool warned = false;
+        for (const auto& e : log.entries)
+            warned = warned || (e.tag == "DHTDevice" && e.level == LogLevel::Warn && e.message == "Weather read invalid");
+        EXPECT_TRUE(warned);
+    }
+
+    TEST_F(ControllerTest, AChangedWeatherRefreshesTheCachedState)
+    {
+        controller.SetWeatherSensorPresent(true);
+        controller.Update();
+        const uint32_t before = controller.Revision();
+
+        controller.OnWeather(Good());
+        controller.Update();
+
+        EXPECT_GT(controller.Revision(), before);
+    }
+
     // ---- sensor range in the state
 
     TEST_F(ControllerTest, StateGetCarriesTheSensorRangeOnceItIsSet)

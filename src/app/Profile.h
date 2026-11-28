@@ -11,6 +11,14 @@ namespace CE::App
         A02YYUW_UART   // sensor streams frames over a serial port
     };
 
+    /// Which temperature/humidity sensor a device has. (Not named DHT11/DHT22: the DHT library defines those as macros.)
+    enum class WeatherSensorType : uint8_t
+    {
+        None,
+        Dht11,
+        Dht22
+    };
+
     /// Everything that differs between devices: pins, sensor choice, credentials and network setup.
     /// One header per device lives in app/profiles/.
     struct Profile
@@ -24,6 +32,9 @@ namespace CE::App
         uint8_t distanceRxPin;      // ESP32 RX pin (wired to the A02YYUW TX)
         uint8_t distanceTxPin;      // ESP32 TX pin (wired to the A02YYUW RX)
         uint8_t distanceSerial;     // A02YYUW_UART only: serial port number, 1 or 2 (0 is the console)
+
+        WeatherSensorType weatherSensor;
+        uint8_t weatherPin;         // DHT data pin (ignored when weatherSensor is None)
 
         const char* wifiSsid;
         const char* wifiPassword;

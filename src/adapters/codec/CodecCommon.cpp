@@ -65,6 +65,21 @@ namespace CE::Adapters::Codec
         out["maxDistanceCm"] = range.maxDistanceCm;
     }
 
+    void FillWeather(const JsonObject out, const WeatherSample& weather)
+    {
+        if (!weather.valid)
+        {
+            out["temperatureC"] = nullptr;
+            out["humidity"] = nullptr;
+            out["heatIndexC"] = nullptr;
+            return;
+        }
+
+        out["temperatureC"] = std::round(weather.temperatureC * 10.0f) / 10.0f;
+        out["humidity"] = std::round(weather.humidity * 10.0f) / 10.0f;
+        out["heatIndexC"] = std::round(weather.heatIndexC * 10.0f) / 10.0f;
+    }
+
     ErrorCode ReadPumpSet(const JsonVariantConst data, Command& command)
     {
         if (!data["on"].is<bool>()) return ErrorCode::BadRequest;

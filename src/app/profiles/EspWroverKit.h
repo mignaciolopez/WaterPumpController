@@ -21,6 +21,9 @@ namespace CE::App
         /* distanceTxPin  */ 18,  // ESP TX -> A02YYUW RX
         /* distanceSerial */ 2,   // used by A02YYUW_UART only
 
+        /* weatherSensor  */ WeatherSensorType::Dht11,
+        /* weatherPin     */ 21,  // DHT11 data
+
         /* wifiSsid       */ WIFI_SSID,
         /* wifiPassword   */ WIFI_PASS,
         /* ntpServer      */ "pool.ntp.org",

@@ -59,7 +59,9 @@ namespace CE::Core
     /// A decoded request, independent of the wire format.
     struct Command
     {
-        static constexpr size_t kMaxSettingValues = 16;
+        // Room for every setting plus some to grow (a client may send all of them back at once).
+        // test_settings fails when the settings outgrow it.
+        static constexpr size_t kMaxSettingValues = 24;
         static constexpr int32_t kNoId = -1;
 
         CommandType  type = CommandType::StateGet;

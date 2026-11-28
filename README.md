@@ -80,6 +80,7 @@ Other rules worth knowing:
 - **Relay module** driving the pump (the firmware drives it **active HIGH**: GPIO high = pump on).
 - **Two XKC_Y23 contactless level sensors** (low and high).
 - **One A02YYUW ultrasonic distance sensor.**
+- Optional: **a DHT11 (or DHT22)** temperature/humidity sensor. A profile without one simply has no weather.
 - A 2.4 GHz WiFi network and internet access for the time (NTP).
 
 ### Tested sensors
@@ -89,7 +90,7 @@ Other rules worth knowing:
 | XKC_Y23 (contactless liquid level) x2 | Low and high level | **Tested on the board** |
 | A02YYUW ultrasonic, pulse (trigger/echo) mode | Water level by distance | **Tested on the board** (default in the profile) |
 | A02YYUW ultrasonic, UART mode | Same, over a serial port | Implemented; the frame parser is unit tested, but **not tested on hardware** |
-| DHT temperature/humidity | - | Libraries are listed in `platformio.ini`, but there is **no weather feature** yet |
+| DHT11 temperature/humidity (DHT22 also supported in the profile) | Air temperature and humidity at the tank | Implemented and unit tested (readings, validation, publishing); **not yet tested on this board**. The same driver is ported from the earlier `WaterTank` project |
 
 ### Wiring
 
@@ -102,6 +103,7 @@ Pins come from `src/app/profiles/EspWroverKit.h`.
 | XKC_Y23 **High** | **27** | Sensor output | Same as above |
 | A02YYUW **TX** | **19** | ESP32 RX | The sensor's TX goes to GPIO 19 (echo) |
 | A02YYUW **RX** | **18** | ESP32 TX | The sensor's RX goes to GPIO 18 (trigger) |
+| DHT11 **data** | **21** | Sensor data pin | Optional. The module needs a pull-up on the data line (most DHT breakout boards have one; a bare sensor needs about 4.7-10 kOhm to 3.3 V) |
 
 ```
                   +-------------------+
@@ -110,6 +112,7 @@ Pins come from `src/app/profiles/EspWroverKit.h`.
    XKC High  ---->+ GPIO27   ESP32    |
    A02YYUW TX --->+ GPIO19  (WROVER)  |
    A02YYUW RX <---+ GPIO18            |
+   DHT11 data <-->+ GPIO21            |
    3V3 / 5V / GND +-------------------+   (each module on the supply its datasheet asks for;
                                            all grounds joined)
 ```
@@ -200,10 +203,11 @@ curl -X POST http://192.168.100.247/api/v1/pump -H "Content-Type: application/js
 ```
 
 `GET /api/v1/state` looks like this (`level.cm` is `null` while the level is unknown; `sensor` is the range the
-distance sensor can measure, in cm of distance, so a client can scale its display):
+distance sensor can measure, in cm of distance, so a client can scale its display; `weather` is only present when a
+DHT sensor is configured and its values are `null` until the first valid reading):
 
 ```json
-{"pump":{"mode":"running","on":true,"cooldown":false,"fault":"none","onAt":1795875075,"offAt":1795874874,"cooldownAt":0},"level":{"cm":72.2},"sensor":{"minDistanceCm":3,"maxDistanceCm":450}}
+{"pump":{"mode":"running","on":true,"cooldown":false,"fault":"none","onAt":1795875075,"offAt":1795874874,"cooldownAt":0},"level":{"cm":72.2},"sensor":{"minDistanceCm":3,"maxDistanceCm":450},"weather":{"temperatureC":23.4,"humidity":61.0,"heatIndexC":24.0}}
 ```
 
 A refused request gets an HTTP error and a code, for example `409` `{"ok":false,"err":"PUMP_COOLDOWN"}`. Writes
@@ -220,7 +224,7 @@ Connect to `ws://192.168.100.247/ws/v1`. The version is part of the address, so 
 ```
 
 The device also **pushes events**: `pump.state` when the pump changes, `tank.level` when the level changes,
-`settings.changed` after a settings change. A client gets nothing on connect, so send `state.get` first.
+`tank.weather` when the temperature or humidity changes (DHT sensor only), `settings.changed` after a settings change. A client gets nothing on connect, so send `state.get` first.
 Full protocol: [docs/protocol.md](docs/protocol.md).
 
 Quick test from Windows PowerShell, no extra tools needed:
@@ -246,6 +250,7 @@ Rule: `criticalLevelCm < minLevelCm < maxLevelCm <= heightCm`.
 | `filteredDistanceOffsetCm` | 0 | 0..100 | Distance sensor offset |
 | `radarDelayS` | 1 | 1..3600 | Seconds between distance readings |
 | `medianWindow` | 5 | 1..15 | Readings used for the median |
+| `weatherDelayS` | 30 | 2..3600 | Seconds between temperature/humidity readings |
 | `pumpMinRunS` | 10 | 0..600 | Minimum seconds ON before a stop request is accepted |
 | `pumpMinRestartS` | 10 | 0..600 | Minimum seconds OFF before the next start |
 | `pumpMaxTimeOnM` | 20 | 1..240 | Longest continuous run (minutes), then forced stop + cooldown |
@@ -264,6 +269,7 @@ At 115200 baud. Tags tell you where a line comes from:
 [XKC_Y23] Low: no water                       sensor state at start, then on every change
 [A02YYUW] New median: 67.4 cm (water level 72.6 cm) (67, 67, 68, ... 67 cm)
                                               every 10 s: median distance, level, last 15 medians
+[DHTDevice] 23.4 C, 61 % humidity (heat index 24.0 C)   every weatherDelayS (30 s)
 [PumpController] Pump ON / Pump OFF           every pump change
 [PumpController] Fault: clock not synced      pump held off; clears by itself
 [PumpController] Pump on cooldown: 37 min left   while on cooldown: when it starts, then every 10 s
@@ -286,6 +292,7 @@ reduce the noise.
 | ... answers `PUMP_COOLDOWN` | The pump ran too long; wait for the cooldown (`pumpCooldownTimeM`). The log shows `Pump on cooldown: N min left` every 10 s |
 | ... answers `PUMP_TOO_SOON` | Stop/start requested too soon after the last change; wait `pumpMinRunS` / `pumpMinRestartS` seconds |
 | Level shows `null` | Not enough valid distance readings yet (needs `medianWindow` readings), or the sensor is not wired / out of range (3-450 cm), or the sensor goes silent after an ordinary reading. When the water rises into the blind zone (closer than 3 cm), the level should read `heightCm - 3` instead (see the blind zone note above); the log then says `No echo right after a reading near the minimum range` |
+| `weather` values are `null` | The DHT gave no valid reading yet (it needs about 2 s after power-up) or three readings in a row failed. Check the data wire and pull-up on GPIO 21; the log shows `Weather read invalid` |
 | Pump starts at night although night mode is on | Night mode only blocks **automatic** starts above `criticalLevelCm`, and uses your `utcOffsetMinutes`. Check the offset |
 | Can't reach the board | Look for the IP in the log. Same network? `ping <ip>`. In PowerShell use `Invoke-RestMethod`, not `curl` |
 | `Network check failed: the WiFi link is down` | WiFi dropped. The board reconnects by itself and restarts after `maxReconnects` failed rounds |

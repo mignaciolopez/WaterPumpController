@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "../support/Fakes.h"
+#include "core/Messages.h"
 #include "core/Settings.h"
 
 using namespace CE;
@@ -21,6 +22,12 @@ TEST(SettingsTest, EveryFieldInTheTableIsFindableAndWithinItsOwnRange)
         EXPECT_GE(defaults.*(field.member), field.min) << field.name;
         EXPECT_LE(defaults.*(field.member), field.max) << field.name;
     }
+}
+
+TEST(SettingsTest, AllSettingsFitInOneCommand)
+{
+    // A client may read all settings and send them back in one settings.set.
+    EXPECT_LE(SettingFieldCount(), Command::kMaxSettingValues);
 }
 
 TEST(SettingsTest, SetAndGetAField)

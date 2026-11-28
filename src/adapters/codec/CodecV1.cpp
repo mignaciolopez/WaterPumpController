@@ -91,7 +91,7 @@ namespace CE::Adapters::CodecV1
     }
 
     std::string EncodeStateResponse(const int32_t id, const PumpState& pump, const bool levelValid, const float levelCm,
-                                    const SensorRange& sensor)
+                                    const SensorRange& sensor, const WeatherSample* weather)
     {
         JsonDocument doc;
         doc["id"] = id;
@@ -100,6 +100,7 @@ namespace CE::Adapters::CodecV1
         Codec::FillPump(data["pump"].to<JsonObject>(), pump);
         Codec::FillLevel(data["level"].to<JsonObject>(), levelValid, levelCm);
         if (sensor.IsKnown()) Codec::FillSensor(data["sensor"].to<JsonObject>(), sensor);
+        if (weather != nullptr) Codec::FillWeather(data["weather"].to<JsonObject>(), *weather);
         return Serialize(doc);
     }
 
@@ -125,6 +126,14 @@ namespace CE::Adapters::CodecV1
         JsonDocument doc;
         doc["event"] = "tank.level";
         Codec::FillLevel(doc["data"].to<JsonObject>(), levelValid, levelCm);
+        return Serialize(doc);
+    }
+
+    std::string EncodeTankWeatherEvent(const WeatherSample& weather)
+    {
+        JsonDocument doc;
+        doc["event"] = "tank.weather";
+        Codec::FillWeather(doc["data"].to<JsonObject>(), weather);
         return Serialize(doc);
     }
 

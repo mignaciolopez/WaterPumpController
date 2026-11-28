@@ -4,6 +4,7 @@
 #include <string>
 
 #include "core/Messages.h"
+#include "core/ports/IWeatherSensor.h"
 
 /// JSON bodies and status codes of the REST interface (see docs/rest-api.md).
 /// Unlike the WebSocket protocol, REST has no id/ok envelope: the HTTP status says whether it worked.
@@ -18,8 +19,9 @@ namespace CE::Adapters::RestCodec
     /// Body of PUT /api/v1/settings: {"minLevelCm":90,...}
     Core::ErrorCode DecodeSettingsBody(const char* body, size_t length, Core::Command& command);
 
+    /// `weather` is left out when it is null (the device has no weather sensor).
     std::string EncodeState(const Core::PumpState& pump, bool levelValid, float levelCm,
-                            const Core::SensorRange& sensor = {});
+                            const Core::SensorRange& sensor = {}, const Core::WeatherSample* weather = nullptr);
     std::string EncodeSettings(const Core::Settings& settings);
     std::string EncodeOk();                            // {"ok":true}
     std::string EncodeError(Core::ErrorCode code);     // {"ok":false,"err":"PUMP_COOLDOWN"}

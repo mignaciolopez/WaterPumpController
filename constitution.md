@@ -11,7 +11,7 @@ This document is the source of truth for architecture and rules. Changes to it n
 - **Test:** PlatformIO `native` env + GoogleTest (runs on the PC, no hardware). Unity is not used.
 - **Libraries:** ArduinoJson, ESP32Ping (watchdog rule). The HTTP server is the `esp_http_server` that ships with the ESP32
   core (REST and WebSocket); ESPAsyncWebServer and AsyncTCP were removed because they corrupted the heap when connections closed.
-  DHT / Adafruit Unified Sensor stay for the future weather adapter only.
+  Adafruit DHT sensor library and Adafruit Unified Sensor are used by the DHT weather adapter.
   Removed: WiFiManager, NewPing (the old HC-SR04 driver is gone; A02YYUW_PWM/A02YYUW_UART replace it).
 - **Storage:** SPIFFS, behind the `IStore` port
 - **Time:** SNTP (ESP-IDF), behind the `IClock` port
@@ -24,14 +24,14 @@ Ports and adapters (hexagonal) with an event bus.
 ```
 src/
   core/            Pure C++17. NO Arduino, ESP-IDF, FreeRTOS or ArduinoJson includes.
-    ports/           IDistanceSensor, IFloatSwitch, ISwitch, IClock, IStore, ILog, INetwork, IRestarter
+    ports/           IDistanceSensor, IWeatherSensor, IFloatSwitch, ISwitch, IClock, IStore, ILog, INetwork, IRestarter
     PumpController   state machine: Idle -> Running -> Cooldown -> Fault
     LevelFilter      median filter
     Tank             one sensor + one pump + rules; repeatable unit
     rules/           Rule interface + rules (level, max on-time, night mode, network watchdog)
     Settings         field table (name, ptr, min, max, default); drives validation and (de)serialization
   adapters/        Implement the ports. May use Arduino/ESP-IDF.
-    sensors/         A02YYUW_PWM, A02YYUW_UART (+ frame parser), XKC_Y23, DHT (future)
+    sensors/         A02YYUW_PWM, A02YYUW_UART (+ frame parser), XKC_Y23, DHTDevice (temperature/humidity)
     actuators/       Relay
     storage/         SpiffsStore
     platform/        SntpClock, FreeRtosScheduler, WiFi/Network, Ping

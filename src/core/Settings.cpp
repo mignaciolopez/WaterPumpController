@@ -16,6 +16,7 @@ namespace CE::Core
             {"filteredDistanceOffsetCm",  &Settings::filteredDistanceOffsetCm, 0,   100},
             {"radarDelayS",               &Settings::radarDelayS,              1,   3600},
             {"medianWindow",              &Settings::medianWindow,             1,   15},
+            {"weatherDelayS",             &Settings::weatherDelayS,            2,   3600},
             {"pumpMinRunS",               &Settings::pumpMinRunS,              0,   600},
             {"pumpMinRestartS",           &Settings::pumpMinRestartS,          0,   600},
             {"pumpMaxTimeOnM",            &Settings::pumpMaxTimeOnM,           1,   240},

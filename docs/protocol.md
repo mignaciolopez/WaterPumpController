@@ -29,7 +29,7 @@ The first key tells you what a message is.
 Snapshot of the pump and the water level.
 ```json
 {"cmd":"state.get","id":1}
-{"id":1,"ok":true,"data":{"pump":{...pump object...},"level":{"cm":45.2},"sensor":{"minDistanceCm":3,"maxDistanceCm":450}}}
+{"id":1,"ok":true,"data":{"pump":{...pump object...},"level":{"cm":45.2},"sensor":{"minDistanceCm":3,"maxDistanceCm":450},"weather":{"temperatureC":23.4,"humidity":61.0,"heatIndexC":24.0}}}
 ```
 
 The `sensor` block says what the distance sensor can measure, so a client can scale its display or validate
@@ -37,6 +37,10 @@ input: `minDistanceCm` (the closest it can measure, 3 for the A02YYUW) and `maxD
 describes the **distance** from the sensor to the water. The level is `heightCm - distance`, so it can range from
 `max(0, heightCm - maxDistanceCm)` up to `heightCm - minDistanceCm` (137 for the default height of 140). The block is
 only present when the device knows the sensor's range, and it is not repeated in the pushed events.
+
+The `weather` block (temperature in degrees Celsius, relative humidity in percent, and the heat index, all with
+0.1 resolution) is only present when the device has a DHT sensor. While there is no valid reading (just after boot, or
+after three failed readings in a row) its three values are `null`. A single failed reading keeps the last good value.
 
 ### `pump.set`
 Turn the pump on or off. Safety rules still apply: a start can be refused (`PUMP_COOLDOWN`,
@@ -56,7 +60,7 @@ Turn the pump on or off. Safety rules still apply: a start can be refused (`PUMP
 
 ### `settings.set`
 Updates one or more settings **atomically**: either all values are applied or none. Values must be
-integers (settings may be negative where the range allows). Up to 16 values per command. On success a `settings.changed` event follows.
+integers (settings may be negative where the range allows). Up to 24 values per command. On success a `settings.changed` event follows.
 ```json
 {"cmd":"settings.set","id":3,"data":{"minLevelCm":90,"maxLevelCm":100}}
 {"id":3,"ok":true}
@@ -81,6 +85,14 @@ Water level above the tank bottom, 0.1 cm resolution. `null` when unknown (not e
 {"event":"tank.level","data":{"cm":null}}
 ```
 
+### `tank.weather`
+Temperature and humidity at the tank, from the DHT sensor. Sent when a reading changes (0.1 resolution) and once after
+start-up. Only sent by devices that have a DHT sensor. All three values are `null` while there is no valid reading.
+```json
+{"event":"tank.weather","data":{"temperatureC":23.4,"humidity":61.0,"heatIndexC":24.0}}
+{"event":"tank.weather","data":{"temperatureC":null,"humidity":null,"heatIndexC":null}}
+```
+
 ### `settings.changed`
 Same data object as the `settings.get` response.
 
@@ -95,6 +107,7 @@ Same data object as the `settings.get` response.
 | `filteredDistanceOffsetCm` | 0 | 0..100 | Distance sensor offset |
 | `radarDelayS` | 1 | 1..3600 | Seconds between distance readings |
 | `medianWindow` | 5 | 1..15 | Readings used for the median |
+| `weatherDelayS` | 30 | 2..3600 | Seconds between temperature/humidity readings (a DHT needs at least 2 s) |
 | `pumpMinRunS` | 10 | 0..600 | Minimum seconds ON before a stop request is accepted |
 | `pumpMinRestartS` | 10 | 0..600 | Minimum seconds OFF before the next start |
 | `pumpMaxTimeOnM` | 20 | 1..240 | Longest continuous run (minutes), then forced stop + cooldown |

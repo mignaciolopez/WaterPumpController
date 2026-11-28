@@ -19,6 +19,16 @@ namespace CE::App
                    a.timeStampCooldown == b.timeStampCooldown;
         }
 
+        bool SameWeather(const WeatherSample& a, const WeatherSample& b)
+        {
+            if (a.valid != b.valid) return false;
+            if (!a.valid) return true;
+
+            auto tenth = [](const float v) { return std::round(v * 10.0f); };
+            return tenth(a.temperatureC) == tenth(b.temperatureC) && tenth(a.humidity) == tenth(b.humidity) &&
+                   tenth(a.heatIndexC) == tenth(b.heatIndexC);
+        }
+
         float Rounded(const float cm)
         {
             return std::round(cm * 10.0f) / 10.0f;  // same resolution as the protocol
@@ -131,6 +141,27 @@ namespace CE::App
         _log.Log(LogLevel::Info, "A02YYUW", message);
     }
 
+    void Controller::OnWeather(const WeatherSample& sample)
+    {
+        if (sample.valid)
+        {
+            _weatherFailures = 0;
+            _weather = sample;
+
+            char message[96];
+            std::snprintf(message, sizeof(message), "%.1f C, %.0f %% humidity (heat index %.1f C)", sample.temperatureC,
+                          sample.humidity, sample.heatIndexC);
+            _log.Log(LogLevel::Info, "DHTDevice", message);
+            return;
+        }
+
+        if (_weatherFailures < kWeatherFailuresBeforeUnknown) ++_weatherFailures;
+        _log.Log(LogLevel::Warn, "DHTDevice", "Weather read invalid");
+
+        // One or two bad readings are normal for a DHT sensor: keep the last good value until it is clearly stale.
+        if (_weatherFailures >= kWeatherFailuresBeforeUnknown) _weather = WeatherSample{};
+    }
+
     void Controller::OnCommand(const uint32_t clientId, const Command& command)
     {
         const CommandOutcome outcome = _handler.Handle(command);
@@ -146,7 +177,7 @@ namespace CE::App
         {
             case CommandType::StateGet:
                 _sink.Send(clientId, Codec::EncodeStateResponse(command.id, _pump.State(), _tank.HasLevel(),
-                                                                _tank.LevelCm(), _sensorRange));
+                                                                _tank.LevelCm(), _sensorRange, WeatherOrNull()));
                 break;
             case CommandType::SettingsGet:
                 _sink.Send(clientId, Codec::EncodeSettingsResponse(command.id, _settings));
@@ -250,6 +281,14 @@ namespace CE::App
             _lastLevelCm = levelCm;
             ++_revision;
             _sink.Broadcast(Codec::EncodeTankLevelEvent(levelValid, levelCm));
+        }
+
+        if (_hasWeatherSensor && (!_weatherPublished || !SameWeather(_weather, _lastPublishedWeather)))
+        {
+            _weatherPublished = true;
+            _lastPublishedWeather = _weather;
+            ++_revision;
+            _sink.Broadcast(Codec::EncodeTankWeatherEvent(_weather));
         }
 
         _published = true;

@@ -5,6 +5,7 @@
 #include "core/Messages.h"
 #include "core/PumpController.h"
 #include "core/Settings.h"
+#include "core/ports/IWeatherSensor.h"
 
 /// JSON shapes shared by every interface (WebSocket v1, REST): what a pump state, a level and the
 /// settings look like, and how command data is read. One place, so the interfaces cannot drift apart.
@@ -19,6 +20,9 @@ namespace CE::Adapters::Codec
 
     /// What the distance sensor can measure: minDistanceCm and maxDistanceCm.
     void FillSensor(JsonObject out, const Core::SensorRange& range);
+
+    /// Temperature, humidity and heat index (0.1 resolution); all three are null while there is no valid reading.
+    void FillWeather(JsonObject out, const Core::WeatherSample& weather);
 
     /// Reads {"on": <bool>} into a PumpSet command (type and `on`; the id is left alone).
     Core::ErrorCode ReadPumpSet(JsonVariantConst data, Core::Command& command);

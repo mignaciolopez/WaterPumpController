@@ -111,6 +111,21 @@ TEST(RestCodecEncodeTest, StateLeavesTheSensorOutWhenTheRangeIsUnknown)
     EXPECT_TRUE(Parse(EncodeState(PumpState{}, true, 80.0f))["sensor"].isNull());
 }
 
+TEST(RestCodecEncodeTest, StateCarriesTheWeatherWhenThereIsASensor)
+{
+    const WeatherSample weather = MakeWeatherSample(23.4f, 61.0f, 24.0f);
+
+    const auto doc = Parse(EncodeState(PumpState{}, true, 80.0f, SensorRange{}, &weather));
+
+    EXPECT_NEAR(doc["weather"]["temperatureC"].as<float>(), 23.4f, 0.001f);
+    EXPECT_NEAR(doc["weather"]["humidity"].as<float>(), 61.0f, 0.001f);
+}
+
+TEST(RestCodecEncodeTest, StateLeavesWeatherOutWithoutASensor)
+{
+    EXPECT_TRUE(Parse(EncodeState(PumpState{}, true, 80.0f))["weather"].isNull());
+}
+
 TEST(RestCodecEncodeTest, UnknownLevelIsNull)
 {
     EXPECT_TRUE(Parse(EncodeState(PumpState{}, false, 0.0f))["level"]["cm"].isNull());
@@ -127,6 +142,17 @@ TEST(RestCodecEncodeTest, SettingsAreAFlatObjectWithEveryField)
         const auto& field = SettingFieldAt(i);
         EXPECT_EQ(doc[field.name].as<int>(), settings.*(field.member)) << field.name;
     }
+}
+
+TEST(RestCodecRoundTripTest, TheFullSettingsObjectFitsInOneRequestBody)
+{
+    // A client may read all settings and send them back; the body must stay under the request limit.
+    const std::string body = EncodeSettings(CE::Core::Settings{});
+    ASSERT_LE(body.size(), kMaxBodyBytes) << body.size() << " bytes";
+
+    Command command;
+    EXPECT_EQ(DecodeSettingsBody(body.data(), body.size(), command), ErrorCode::None);
+    EXPECT_EQ(command.valueCount, SettingFieldCount());
 }
 
 TEST(RestCodecEncodeTest, OkAndErrorBodies)
