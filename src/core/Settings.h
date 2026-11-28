@@ -13,37 +13,40 @@ namespace CE::Core
     struct Settings
     {
         // Tank levels, measured from the bottom of the tank (cm)
-        uint16_t heightCm                 = 140;  // tank height = max distance to measure
-        uint16_t criticalLevelCm          = 20;   // start pumping even at night at or below this level
-        uint16_t minLevelCm               = 50;   // start pumping at or below this level
-        uint16_t maxLevelCm               = 130;  // stop pumping at or above this level
-        uint16_t filteredDistanceOffsetCm = 0;    // distance sensor offset
+        int32_t heightCm                 = 140;  // tank height = max distance to measure
+        int32_t criticalLevelCm          = 20;   // start pumping even at night at or below this level
+        int32_t minLevelCm               = 50;   // start pumping at or below this level
+        int32_t maxLevelCm               = 130;  // stop pumping at or above this level
+        int32_t filteredDistanceOffsetCm = 0;    // distance sensor offset
 
         // Sampling
-        uint16_t radarDelayS              = 1;    // delay between distance measurements
-        uint16_t medianWindow             = 5;    // samples used for the median (1..15)
+        int32_t radarDelayS              = 1;    // delay between distance measurements
+        int32_t medianWindow             = 5;    // samples used for the median (1..15)
 
         // Pump
-        uint16_t pumpMinRunS              = 10;   // minimum time ON before a stop is accepted
-        uint16_t pumpMinRestartS          = 10;   // minimum time OFF before the next start
-        uint16_t pumpMaxTimeOnM           = 20;   // max continuous run, then forced stop + cooldown
-        uint16_t pumpCooldownTimeM        = 60;   // lockout after a max on-time stop
+        int32_t pumpMinRunS              = 10;   // minimum time ON before a stop is accepted
+        int32_t pumpMinRestartS          = 10;   // minimum time OFF before the next start
+        int32_t pumpMaxTimeOnM           = 20;   // max continuous run, then forced stop + cooldown
+        int32_t pumpCooldownTimeM        = 60;   // lockout after a max on-time stop
 
         // Night mode: outside the critical level, the pump is not started at night
-        uint16_t nightStartHour           = 22;
-        uint16_t nightEndHour             = 8;
+        int32_t nightStartHour           = 22;
+        int32_t nightEndHour             = 8;
+
+        // Time zone: local time = UTC + offset (no daylight saving). Default -180 = UTC-3 (Argentina)
+        int32_t utcOffsetMinutes         = -180;
 
         // Network watchdog
-        uint16_t watchdogDelayS           = 60;   // seconds between network checks
-        uint16_t maxReconnects            = 10;   // failed reconnect rounds before the device restarts
+        int32_t watchdogDelayS           = 60;   // seconds between network checks
+        int32_t maxReconnects            = 10;   // failed reconnect rounds before the device restarts
     };
 
     struct SettingField
     {
         const char*    name;
-        uint16_t Settings::* member;
-        uint16_t       min;
-        uint16_t       max;
+        int32_t Settings::* member;
+        int32_t       min;
+        int32_t       max;
     };
 
     struct SettingUpdate

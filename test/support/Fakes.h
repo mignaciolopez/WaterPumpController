@@ -7,6 +7,7 @@
 
 #include "core/ports/IClock.h"
 #include "core/ports/IFloatSwitch.h"
+#include "core/ports/IMessageSink.h"
 #include "core/ports/INetwork.h"
 #include "core/ports/IRestarter.h"
 #include "core/ports/ILog.h"
@@ -94,5 +95,17 @@ namespace CE::Fakes
         int restartCount = 0;
 
         void Restart() override { ++restartCount; }
+    };
+
+    class FakeSink : public Core::IMessageSink
+    {
+    public:
+        struct Sent { uint32_t clientId; std::string message; };
+
+        std::vector<Sent> sent;                  // responses
+        std::vector<std::string> broadcasts;     // events
+
+        void Send(const uint32_t clientId, const std::string& message) override { sent.push_back({clientId, message}); }
+        void Broadcast(const std::string& message) override { broadcasts.push_back(message); }
     };
 }

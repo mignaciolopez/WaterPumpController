@@ -1,5 +1,7 @@
 #pragma once
 
+#include <atomic>
+
 #include "core/ports/IClock.h"
 
 namespace CE::Adapters
@@ -9,17 +11,19 @@ namespace CE::Adapters
     class SntpClock final : public Core::IClock
     {
     public:
-        /// `timeZone` is a POSIX TZ string, e.g. "ART3".
-        SntpClock(const char* timeZone, const char* server);
+        explicit SntpClock(const char* server);
 
         void Begin();
+
+        /// Local time = UTC + offset (no daylight saving). Safe to call from any task.
+        void SetUtcOffsetMinutes(int minutes) { _utcOffsetMinutes = minutes; }
 
         int64_t NowS() const override;
         bool IsSynced() const override;
         int LocalHour() const override;
 
     private:
-        const char* _timeZone;
         const char* _server;
+        std::atomic<int> _utcOffsetMinutes{0};
     };
 }

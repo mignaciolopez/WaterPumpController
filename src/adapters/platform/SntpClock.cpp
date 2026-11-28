@@ -11,13 +11,13 @@ namespace CE::Adapters
         constexpr time_t kFirstValidTime = 1577836800;  // 2020-01-01 UTC: anything earlier means "not synced"
     }
 
-    SntpClock::SntpClock(const char* timeZone, const char* server) : _timeZone(timeZone), _server(server)
+    SntpClock::SntpClock(const char* server) : _server(server)
     {
     }
 
     void SntpClock::Begin()
     {
-        configTzTime(_timeZone, _server);
+        configTime(0, 0, _server);  // keep the system clock in UTC; the offset is applied in LocalHour()
     }
 
     int64_t SntpClock::NowS() const
@@ -32,9 +32,9 @@ namespace CE::Adapters
 
     int SntpClock::LocalHour() const
     {
-        const time_t now = time(nullptr);
-        tm local = {};
-        localtime_r(&now, &local);
-        return local.tm_hour;
+        const time_t local = time(nullptr) + static_cast<time_t>(_utcOffsetMinutes.load()) * 60;
+        tm parts = {};
+        gmtime_r(&local, &parts);
+        return parts.tm_hour;
     }
 }

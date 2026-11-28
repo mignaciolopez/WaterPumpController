@@ -1,15 +1,25 @@
-#include <App.h>
+#include <Arduino.h>
+
+#include "app/Firmware.h"
+#include "app/profiles/EspWroverKit.h"
+
+// Created in setup(), not at static-initialization time, so the FreeRTOS objects inside exist
+// only after the system is up. It lives for the whole run of the program.
+static CE::App::Firmware* firmware = nullptr;
 
 void setup()
 {
-    if (!CE::App::Instance().Setup())
+    firmware = new CE::App::Firmware(CE::App::kEspWroverKit);
+
+    if (!firmware->Begin())
     {
-        sleep(5);
-        esp_restart();
+        delay(5000);
+        ESP.restart();
     }
 }
 
 void loop()
 {
-    CE::App::Instance().Loop();
+    // All the work happens in the firmware's tasks.
+    vTaskDelay(pdMS_TO_TICKS(1000));
 }

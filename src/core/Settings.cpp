@@ -22,6 +22,7 @@ namespace CE::Core
             {"pumpCooldownTimeM",         &Settings::pumpCooldownTimeM,        1,   1440},
             {"nightStartHour",            &Settings::nightStartHour,           0,   23},
             {"nightEndHour",              &Settings::nightEndHour,             0,   23},
+            {"utcOffsetMinutes",          &Settings::utcOffsetMinutes,         -720, 840},
             {"watchdogDelayS",            &Settings::watchdogDelayS,           10,  3600},
             {"maxReconnects",             &Settings::maxReconnects,            1,   100},
         };
@@ -81,7 +82,7 @@ namespace CE::Core
             if (field == nullptr) return SettingResult::UnknownField;
             if (updates[i].value < field->min || updates[i].value > field->max) return SettingResult::OutOfRange;
 
-            candidate.*(field->member) = static_cast<uint16_t>(updates[i].value);
+            candidate.*(field->member) = static_cast<int32_t>(updates[i].value);
         }
 
         if (!IsConsistent(candidate)) return SettingResult::Inconsistent;
@@ -121,7 +122,7 @@ namespace CE::Core
             if (!BuildKey(key, sizeof(key), field.name) || !store.GetI64(key, value)) continue;
             if (value < field.min || value > field.max) continue;
 
-            candidate.*(field.member) = static_cast<uint16_t>(value);
+            candidate.*(field.member) = static_cast<int32_t>(value);
         }
 
         if (IsConsistent(candidate)) settings = candidate;

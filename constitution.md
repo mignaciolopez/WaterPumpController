@@ -15,6 +15,7 @@ This document is the source of truth for architecture and rules. Changes to it n
 - **Storage:** SPIFFS, behind the `IStore` port
 - **Time:** SNTP (ESP-IDF), behind the `IClock` port
 - **Supported pin profile:** ESP32 only. The ESP32-C3 profile is dropped.
+- **Time zone:** the `utcOffsetMinutes` setting (local = UTC + offset, no daylight saving).
 
 ## Architecture Principles
 Ports and adapters (hexagonal) with an event bus.
@@ -35,9 +36,12 @@ src/
     platform/        SntpClock, FreeRtosScheduler, WiFi/Network, Ping
     net/             WebSocketServer (later: MQTT, REST)
     codec/           Versioned JSON protocol (the only place that knows the wire format)
-  app/             Composition root. Builds objects and wires them. No singletons.
-    main.cpp
-    profiles/        Per-device config: pins, tanks, enabled interfaces
+  app/             Composition root and application logic.
+    Controller       wires core pieces, turns commands/state changes into protocol messages (testable)
+    Firmware         builds the adapters, owns the tasks (control, sensor, network)
+    Profile          per-device pins, credentials, network setup
+    profiles/        one header per device (EspWroverKit.h)
+    (main.cpp creates Firmware with a profile)
 test/              Native tests for core/ and codec/
 docs/protocol.md   Wire protocol specification
 ```

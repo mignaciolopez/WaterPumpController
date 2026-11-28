@@ -9,6 +9,7 @@
 #include <type_traits>
 
 #include "core/Messages.h"
+#include "core/ports/IMessageSink.h"
 
 namespace CE::Adapters
 {
@@ -17,7 +18,7 @@ namespace CE::Adapters
     /// Network callbacks run in the async-TCP task, but the pump logic runs in the control task.
     /// So this class only decodes: valid commands go into a queue that the control task drains with
     /// Poll(); malformed messages are answered immediately without touching any pump state.
-    class WebSocketServer
+    class WebSocketServer final : public Core::IMessageSink
     {
     public:
         struct Incoming
@@ -38,8 +39,8 @@ namespace CE::Adapters
         /// Non-blocking: takes the next queued command, if any.
         bool Poll(Incoming& out);
 
-        void Send(uint32_t clientId, const std::string& message);
-        void Broadcast(const std::string& message);
+        void Send(uint32_t clientId, const std::string& message) override;
+        void Broadcast(const std::string& message) override;
 
         /// Drops disconnected clients. Call from time to time.
         void Cleanup();

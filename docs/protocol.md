@@ -50,7 +50,7 @@ Turn the pump on or off. Safety rules still apply: a start can be refused (`PUMP
 
 ### `settings.set`
 Updates one or more settings **atomically**: either all values are applied or none. Values must be
-integers. Up to 16 values per command. On success a `settings.changed` event follows.
+integers (settings may be negative where the range allows). Up to 16 values per command. On success a `settings.changed` event follows.
 ```json
 {"cmd":"settings.set","id":3,"data":{"minLevelCm":90,"maxLevelCm":100}}
 {"id":3,"ok":true}
@@ -95,6 +95,7 @@ Same data object as the `settings.get` response.
 | `pumpCooldownTimeM` | 60 | 1..1440 | Lockout after a max-on-time stop (minutes) |
 | `nightStartHour` | 22 | 0..23 | Night starts (local hour) |
 | `nightEndHour` | 8 | 0..23 | Night ends (local hour) |
+| `utcOffsetMinutes` | -180 | -720..840 | Local time = UTC + this offset (minutes, no daylight saving). -180 = UTC-3 |
 | `watchdogDelayS` | 60 | 10..3600 | Seconds between network checks (ping to the router) |
 | `maxReconnects` | 10 | 1..100 | Failed reconnect rounds before the device restarts |
 

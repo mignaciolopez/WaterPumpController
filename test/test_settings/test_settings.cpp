@@ -34,6 +34,30 @@ TEST(SettingsTest, SetAndGetAField)
     EXPECT_EQ(value, 30);
 }
 
+TEST(SettingsTest, NegativeValuesAreAllowedWhereTheRangeAllowsThem)
+{
+    Settings s;
+
+    EXPECT_EQ(SetSetting(s, "utcOffsetMinutes", -300), SettingResult::Ok);
+    EXPECT_EQ(s.utcOffsetMinutes, -300);
+    EXPECT_EQ(SetSetting(s, "utcOffsetMinutes", -721), SettingResult::OutOfRange);
+    EXPECT_EQ(SetSetting(s, "utcOffsetMinutes", 841), SettingResult::OutOfRange);
+    EXPECT_EQ(SetSetting(s, "medianWindow", -1), SettingResult::OutOfRange);
+}
+
+TEST(SettingsTest, NegativeValuesRoundTripThroughTheStore)
+{
+    Fakes::FakeStore store;
+    Settings saved;
+    ASSERT_EQ(SetSetting(saved, "utcOffsetMinutes", -240), SettingResult::Ok);
+    ASSERT_TRUE(SaveSettings(store, saved));
+
+    Settings loaded;
+    LoadSettings(store, loaded);
+
+    EXPECT_EQ(loaded.utcOffsetMinutes, -240);
+}
+
 TEST(SettingsTest, UnknownFieldIsRejected)
 {
     Settings s;

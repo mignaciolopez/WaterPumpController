@@ -2,9 +2,9 @@
 Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitution.md`
 
 ## Summary
-- **Steps Completed:** 4 / 6
-- **Current Step:** Step 5 - Composition root + profile (waiting for go-ahead)
-- **Checks (last run):** `pio test -e native` 106/106 passing · `pio run -e esp-wrover-kit` builds
+- **Steps Completed:** 6 / 6 (steps 5 and 6 done together)
+- **Current Step:** Done - flash to the board and verify on hardware (see Hardware checklist)
+- **Checks (last run):** `pio test -e native` all passing · `pio run -e esp-wrover-kit` builds
 
 ## Task Log
 ### Step 1 - Ports, PumpController, native test env (done)
@@ -43,6 +43,22 @@ Branch: `refactor/ports-and-adapters` · Plan: see "Migration Plan" in `constitu
   `SntpClock` (non-blocking), `WifiNetwork` (non-blocking, pings the gateway), `EspLog`, `EspRestarter`,
   `WebSocketServer` (/ws/v1; decodes in the network task, queues commands for the control task)
 - Not wired into `main.cpp` yet (old firmware still runs) - that is step 5
+
+### Steps 5 + 6 - Composition root, profile, new firmware, old code removed (done)
+- Settings are now signed 32-bit; new `utcOffsetMinutes` (default -180) makes the time zone configurable
+- `app/Controller` (native-tested): settings, pump, tank, rules, command handling, event publishing
+- `app/Firmware`: control task (owns all logic), sensor task (queue to control), network task (watchdog)
+- `app/Profile` + `profiles/EspWroverKit.h`; `main.cpp` replaced
+- Old firmware removed (`services/`, `os/`, `domain/`, `driver/`, `config/`, old `App`); still in git history
+- Removed unused libraries WiFiManager and NewPing (HC-SR04 / UART drivers were removed with the old code)
+
+## Hardware checklist (nothing below has run on the board yet)
+1. Check the float-switch wiring: low sensor on GPIO 26, high on GPIO 27 (old code swapped them). With the pump
+   disconnected, wet/dry each sensor and read `state.get`; wrong wiring shows a `sensorInconsistent` fault.
+2. Confirm the relay is off at boot and switches with `pump.set`.
+3. Confirm WiFi connects, time syncs (pump leaves the `noTime` fault) and `ws://<ip>/ws/v1` answers `state.get`.
+4. Watch stack headroom (debug log every 10 s) and tune the task stack sizes in `Firmware.cpp`.
+5. Set `utcOffsetMinutes` for your location if it is not UTC-3.
 
 ## Open Questions / Assumptions to confirm
 - Level formula: `level = height - (distance + filteredDistanceOffsetCm)`, clamped to 0..height
