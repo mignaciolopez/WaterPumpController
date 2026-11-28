@@ -63,7 +63,7 @@ namespace CE::Core
         _config = config;
     }
 
-    void PumpController::Update()
+    void PumpController::Update(const AutoStart autoStart)
     {
         if (!_clock.IsSynced())
         {
@@ -110,7 +110,7 @@ namespace CE::Core
                 Stop(now);
             }
         }
-        else if (!_state.isOnCooldown && !lowWet)
+        else if (autoStart == AutoStart::Allow && !_state.isOnCooldown && !lowWet)
         {
             (void)Request(true); // may be refused (e.g. too soon); retried on the next Update
         }
@@ -120,7 +120,12 @@ namespace CE::Core
     {
         if (!on)
         {
-            if (_state.isOn) Stop(_clock.NowS());
+            if (!_state.isOn) return PumpResult::Ok;
+
+            const int64_t now = _clock.NowS();
+            if (now - _state.timeStampOn < static_cast<int64_t>(_config.minRunTimeS)) return PumpResult::TooSoon;
+
+            Stop(now);
             return PumpResult::Ok;
         }
 

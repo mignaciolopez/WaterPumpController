@@ -1,6 +1,6 @@
+#include "../support/Fakes.h"
 #include <gtest/gtest.h>
 
-#include "../support/Fakes.h"
 #include "core/PumpController.h"
 
 using namespace CE;
@@ -19,7 +19,7 @@ namespace
         Fakes::FakeFloat high;
         Fakes::FakeStore store;
         Fakes::FakeLog log;
-        PumpConfig config{10, 20 * 60, 60 * 60};
+        PumpConfig config{10, 10, 20 * 60, 60 * 60};
         PumpController pump{relay, low, high, clock, store, log, config};
 
         void SetUp() override
@@ -71,12 +71,43 @@ namespace
         EXPECT_EQ(pump.Mode(), PumpMode::Idle);
     }
 
-    TEST_F(PumpControllerTest, ManualOffIsAlwaysAllowed)
+    TEST_F(PumpControllerTest, ManualStopRefusedWithinMinRunTime)
     {
         NeedWater();
         pump.Update();
+        clock.Advance(9);
 
+        EXPECT_EQ(pump.Request(false), PumpResult::TooSoon);
+        EXPECT_TRUE(relay.on);
+
+        clock.Advance(1);
         EXPECT_EQ(pump.Request(false), PumpResult::Ok);
+        EXPECT_FALSE(relay.on);
+    }
+
+    TEST_F(PumpControllerTest, StopWhenAlreadyOffIsOk)
+    {
+        EXPECT_EQ(pump.Request(false), PumpResult::Ok);
+    }
+
+    TEST_F(PumpControllerTest, InhibitedAutoStartDoesNotStartPump)
+    {
+        NeedWater();
+
+        pump.Update(PumpController::AutoStart::Inhibit);
+
+        EXPECT_FALSE(relay.on);
+    }
+
+    TEST_F(PumpControllerTest, InhibitDoesNotPreventSafetyStop)
+    {
+        NeedWater();
+        pump.Update();
+        low.wet = true;
+        high.wet = true;
+
+        pump.Update(PumpController::AutoStart::Inhibit);
+
         EXPECT_FALSE(relay.on);
     }
 
@@ -84,6 +115,7 @@ namespace
     {
         NeedWater();
         pump.Update();
+        clock.Advance(10);
         pump.Request(false);
         clock.Advance(5);
 
@@ -268,8 +300,4 @@ namespace
     }
 }
 
-int main(int argc, char** argv)
-{
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
+#include "../support/Main.h"

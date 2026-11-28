@@ -18,9 +18,11 @@ namespace CE::Fakes
     public:
         int64_t now = 1000000;
         bool synced = true;
+        int localHour = 12;
 
         int64_t NowS() const override { return now; }
         bool IsSynced() const override { return synced; }
+        int LocalHour() const override { return localHour; }
         void Advance(const int64_t seconds) { now += seconds; }
     };
 

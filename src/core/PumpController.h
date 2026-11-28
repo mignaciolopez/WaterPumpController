@@ -36,6 +36,7 @@ namespace CE::Core
 
     struct PumpConfig
     {
+        uint32_t minRunTimeS         = 10;       // minimum time ON before a manual/level stop is accepted
         uint32_t minRestartIntervalS = 10;       // minimum time between OFF and the next ON
         uint32_t maxOnTimeS          = 20 * 60;  // longest continuous run before forced OFF + cooldown
         uint32_t cooldownS           = 60 * 60;  // lockout after a max on-time stop
@@ -54,9 +55,10 @@ namespace CE::Core
     /// Owns all pump safety rules. Call Begin() once, then Update() periodically.
     ///
     /// Rules:
-    ///  - Stopping is always allowed. Starting is refused during fault, cooldown,
-    ///    high water level, or within minRestartIntervalS of the last stop.
-    ///  - High level and max on-time stop the pump immediately.
+    ///  - No rapid cycling: a start is refused within minRestartIntervalS of the last stop,
+    ///    and a normal stop request is refused within minRunTimeS of the last start.
+    ///  - Starting is also refused during fault, cooldown or high water level.
+    ///  - Safety stops (high level, max on-time, faults) always act immediately.
     ///  - No synced clock, or inconsistent level sensors, turn the pump off (Fault).
     ///    Faults clear on their own once the cause is gone. Cooldown survives faults.
     class PumpController
@@ -68,10 +70,14 @@ namespace CE::Core
         /// Forces the relay off and restores persisted state.
         void Begin();
 
-        /// Evaluates sensors and timers; starts/stops the pump as needed.
-        void Update();
+        /// Whether Update() may start the pump on its own when the low sensor is dry.
+        enum class AutoStart : uint8_t { Allow, Inhibit };
 
-        /// Manual command. Returns why a start was refused.
+        /// Evaluates sensors and timers; starts/stops the pump as needed.
+        /// Safety stops are applied regardless of `autoStart`.
+        void Update(AutoStart autoStart = AutoStart::Allow);
+
+        /// Manual/level command. Returns why it was refused (TooSoon, Cooldown, ...).
         PumpResult Request(bool on);
 
         void SetConfig(const PumpConfig& config);

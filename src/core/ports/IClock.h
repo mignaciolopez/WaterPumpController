@@ -15,5 +15,8 @@ namespace CE::Core
 
         /// True once the clock holds a trustworthy time (e.g. after NTP sync).
         virtual bool IsSynced() const = 0;
+
+        /// Local hour of day (0-23). Only meaningful when IsSynced() is true.
+        virtual int LocalHour() const = 0;
     };
 }
